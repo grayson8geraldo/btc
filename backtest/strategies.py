@@ -217,17 +217,19 @@ def s12_heikin_ashi(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ========================================================================
-# 13. Opening Range Breakout — first 4h of UTC day (16 bars)
+# 13. Opening Range Breakout — first 4h of UTC day (timeframe-agnostic)
 # ========================================================================
 def s13_opening_range(df: pd.DataFrame) -> pd.DataFrame:
     dt = pd.to_datetime(df['open_time'], unit='ms', utc=True)
-    h, l = df['high'], df['low']
-    bars_from_day = dt.dt.hour*4 + dt.dt.minute//15
+    hours_from_day = (dt - dt.dt.floor('D')).dt.total_seconds() / 3600.0
+    # "Opening range" = first 4 hours of each UTC day
+    in_or = hours_from_day < 4.0
     day = dt.dt.floor('D')
-    or_high = h.where(bars_from_day < 16).groupby(day).cummax().ffill()
-    or_low  = l.where(bars_from_day < 16).groupby(day).cummin().ffill()
+    h, l = df['high'], df['low']
+    or_high = h.where(in_or).groupby(day).cummax().ffill()
+    or_low  = l.where(in_or).groupby(day).cummin().ffill()
     a = atr(df, 14)
-    in_window = bars_from_day >= 16
+    in_window = hours_from_day >= 4.0
     long_sig  = in_window & (df['close'] > or_high) & (df['close'].shift() <= or_high.shift())
     short_sig = in_window & (df['close'] < or_low)  & (df['close'].shift() >= or_low.shift())
     sig = pd.Series(0, index=df.index)

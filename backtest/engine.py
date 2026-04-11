@@ -53,6 +53,7 @@ class BTResult:
     equity:     pd.Series = None
     start_eq:   float = STARTING_CAPITAL
     end_eq:     float = STARTING_CAPITAL
+    bars_per_year: float = BARS_PER_YEAR
 
     @property
     def n_trades(self):            return len(self.trades)
@@ -88,11 +89,11 @@ class BTResult:
         if self.equity is None or len(self.equity) < 2: return 0.0
         rets = self.equity.pct_change().dropna()
         if rets.std() == 0: return 0.0
-        return float(rets.mean() / rets.std() * np.sqrt(BARS_PER_YEAR))
+        return float(rets.mean() / rets.std() * np.sqrt(self.bars_per_year))
     @property
     def cagr(self):
         if self.equity is None or len(self.equity) < 2: return 0.0
-        years = len(self.equity) / BARS_PER_YEAR
+        years = len(self.equity) / self.bars_per_year
         if years <= 0: return 0.0
         if self.end_eq <= 0: return -1.0
         return (self.end_eq / self.start_eq) ** (1/years) - 1
@@ -128,6 +129,7 @@ def run_backtest(df: pd.DataFrame,
                  cooldown_bars: int = 0,     # bars to wait after a closed trade
                  risk_pct: float = RISK_PCT,
                  max_leverage: float = MAX_LEVERAGE,
+                 bars_per_year: float = BARS_PER_YEAR,
                  allow_short: bool = True) -> BTResult:
     """
     df must have columns: open_time, open, high, low, close, volume
@@ -256,7 +258,8 @@ def run_backtest(df: pd.DataFrame,
 
     eq_series = pd.Series(equity_curve, index=pd.to_datetime(t, unit='ms', utc=True))
     return BTResult(name=name, trades=trades, equity=eq_series,
-                    start_eq=STARTING_CAPITAL, end_eq=float(equity))
+                    start_eq=STARTING_CAPITAL, end_eq=float(equity),
+                    bars_per_year=bars_per_year)
 
 
 # ----------------  Common indicator helpers  -----------------

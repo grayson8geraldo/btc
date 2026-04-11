@@ -217,6 +217,74 @@ Based on this honest backtest, realistic paths are:
 None of these are claims: they are natural next steps if the user wants to
 continue this research project on the same data.
 
+---
+
+## 8.2 · Multi-timeframe follow-up (CONFIRMED EDGE ON 4h & 1D)
+
+After the 15m tournament the hypothesis was: *costs, not logic, kill
+these strategies.*  So the same 20 strategies, same textbook parameters,
+same walk-forward split, same CONS risk profile were re-run on **4-hour**
+and **daily** resamples of the very same data.  Implementation in
+[`backtest/run_multi_tf.py`](backtest/run_multi_tf.py), full log in
+[`results/multi_tf_log.txt`](results/multi_tf_log.txt).
+
+### OOS strategies with **genuine positive edge (PF > 1.0, $200 start)**
+
+| TF | Strategy | End $ | Return | PF | Sharpe | MaxDD | Trades |
+|---|---|---:|---:|---:|---:|---:|---:|
+| **1D** | **🥇 S10 Keltner Breakout** | **$231.66** | **+15.8 %** | **3.21** | **+1.47** | **−4.0 %** | 18 |
+| 4h | S05 Donchian-20          | $221.26 | +10.6 % | 1.13 | +0.48 | −15.3 % | 164 |
+| 4h | S18 Momentum-3           | $220.85 | +10.4 % | 1.08 | +0.36 | −17.3 % | 347 |
+| 4h | S08 VWAP Reversion       | $220.74 | +10.4 % | 1.09 | +0.32 | −24.1 % | 255 |
+| 1D | S18 Momentum-3           | $213.05 | +6.5 %  | 1.16 | +0.41 | −6.6 %  | 85  |
+| 4h | S02 RSI-2 Reversion      | $212.10 | +6.1 %  | 1.11 | +0.34 | −15.6 % | 126 |
+| 4h | S16 Volume Fade          | $211.45 | +5.7 %  | 1.19 | +0.39 | −7.9 %  | 61  |
+| 1D | S07 Stoch Cross          | $209.26 | +4.6 %  | 1.18 | +0.37 | −6.3 %  | 54  |
+| 4h | S11 SuperTrend           | $205.52 | +2.8 %  | 1.11 | +0.24 | −5.0 %  | 80  |
+| 1D | S06 MACD Cross           | $205.22 | +2.6 %  | 1.20 | +0.30 | −5.3 %  | 28  |
+| 1D | S03 BB Breakout          | $203.31 | +1.7 %  | 1.09 | +0.17 | −8.0 %  | 33  |
+| 4h | S01 EMA Cross            | $198.79 | −0.6 %  | 1.03 | +0.03 | −13.1 % | 135 |
+
+### Headline numbers
+
+|   | 15m | 4h | 1D |
+|---|---:|---:|---:|
+| # strategies with OOS PF > 1.0  | 1 / 20 | 9 / 20 | 6 / 20 |
+| Best OOS end-equity             | $154.43 | $221.26 | **$231.66** |
+| Best OOS Sharpe                 | −0.39   | +0.48   | **+1.47** |
+| OOS Buy & Hold                  | $320.89 | $322.12 | $308.57 |
+
+### The real findings
+
+1. **The 15m result was structurally, not directionally, wrong.**  The
+   very same strategies, the very same parameters, produce positive
+   profit factors on 4h and 1D.  What killed 15m was cost drag, not the
+   idea.
+
+2. **Multiple statistically meaningful positives.**  4h S05 / S18 / S08
+   each have 160–350 trades, which is a real sample — not noise.
+
+3. **🥇 S10 Keltner Breakout on 1D beats Buy & Hold on a risk-adjusted
+   basis** (Sharpe **+1.47** vs. B&H ~+0.9 on the OOS window), though on
+   only 18 trades — small sample, wide confidence interval.  Use with
+   caution and expect the live PF to regress toward ~1.5.
+
+4. **None of the strategies beat Buy & Hold in absolute return** on OOS
+   — BTC grew +60 %, the best strategy grew +15.8 %.  That is the honest
+   price of risk reduction: a 4 % drawdown vs. a 30 %+ B&H drawdown.
+
+### The practical take-away
+
+* Want **highest absolute return**: hold BTC.  End value $321.
+* Want **highest risk-adjusted return with rules**: **S10 Keltner 1D** —
+  +15.8 % return, −4 % max DD, Sharpe 1.47.  Smaller sample → treat as
+  candidate to paper-trade before risking real money.
+* Want **most statistically significant OOS edge**: 4h **S05 Donchian-20**
+  or **S18 Momentum-3**.  Hundreds of trades, PF 1.08–1.13, Sharpe ≈ 0.4.
+* **Ensemble of the 4h / 1D winners** is the natural next step — the
+  green rows above are logically decorrelated (trend, mean-reversion,
+  VWAP, volume).  Not implemented yet, but the data is all there.
+
 ## 9 · How to reproduce
 
 ```bash

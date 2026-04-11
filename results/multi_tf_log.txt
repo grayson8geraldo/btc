@@ -1,0 +1,202 @@
+
+================================================================
+MULTI-TIMEFRAME TOURNAMENT — CONS profile  ($200 start)
+================================================================
+
+15m: IS bars=105,120  OOS bars=72,864   B&H IS=$293.98 (+47.0%)  B&H OOS=$320.89 (+60.4%)
+
+4h: IS bars=6,570  OOS bars=4,554   B&H IS=$288.81 (+44.4%)  B&H OOS=$322.12 (+61.1%)
+
+1D: IS bars=1,095  OOS bars=759   B&H IS=$288.47 (+44.2%)  B&H OOS=$308.57 (+54.3%)
+
+------------------  TIMEFRAME 15m  ------------------
+  hold=96b  cooldown=32b  bars/year=35040
+
+---- IS ----
+  S01_EMA_Cross             end=$     1.63  ret=  -99.19%  sharpe=  -5.99  pf= 0.71  dd= -99.19%  trades= 1686
+  S02_RSI2_Reversion        end=$    56.13  ret=  -71.93%  sharpe=  -1.37  pf= 0.97  dd= -78.41%  trades= 1343
+  S03_BB_Breakout           end=$     3.80  ret=  -98.10%  sharpe=  -4.10  pf= 0.81  dd= -98.28%  trades= 1934
+  S04_BB_Fade               end=$    14.71  ret=  -92.65%  sharpe=  -3.23  pf= 0.94  dd= -93.54%  trades= 2057
+  S05_Donchian20            end=$     1.99  ret=  -99.00%  sharpe=  -5.04  pf= 0.73  dd= -99.00%  trades= 1728
+  S06_MACD_Cross            end=$     5.59  ret=  -97.20%  sharpe=  -4.11  pf= 0.84  dd= -97.67%  trades= 1816
+  S07_Stoch_Cross           end=$     3.50  ret=  -98.25%  sharpe=  -4.57  pf= 0.79  dd= -98.33%  trades= 1971
+  S08_VWAP_Reversion        end=$     3.75  ret=  -98.12%  sharpe=  -4.54  pf= 0.81  dd= -98.23%  trades= 1889
+  S09_VWAP_Breakout         end=$     5.54  ret=  -97.23%  sharpe=  -4.47  pf= 0.82  dd= -97.23%  trades= 1720
+  S10_Keltner_Breakout      end=$     8.08  ret=  -95.96%  sharpe=  -3.62  pf= 0.83  dd= -96.27%  trades= 1530
+  S11_SuperTrend            end=$    39.49  ret=  -80.26%  sharpe=  -2.51  pf= 0.82  dd= -83.60%  trades= 1046
+  S12_HeikinAshi            end=$     0.55  ret=  -99.73%  sharpe=  -7.96  pf= 0.69  dd= -99.74%  trades= 2653
+  S13_OpeningRange          end=$    93.75  ret=  -53.13%  sharpe=  -1.22  pf= 0.88  dd= -57.06%  trades=  885
+  S14_ParabolicSAR          end=$     7.32  ret=  -96.34%  sharpe=  -4.61  pf= 0.80  dd= -96.92%  trades= 2017
+  S15_ADX_Trend             end=$    30.78  ret=  -84.61%  sharpe=  -3.67  pf= 0.74  dd= -86.13%  trades=  770
+  S16_Volume_Fade           end=$    63.50  ret=  -68.25%  sharpe=  -1.41  pf= 0.93  dd= -74.29%  trades=  974
+  S17_ZScore_Reversion      end=$    14.71  ret=  -92.65%  sharpe=  -3.23  pf= 0.94  dd= -93.54%  trades= 2057
+  S18_Momentum3             end=$    42.18  ret=  -78.91%  sharpe=  -1.71  pf= 0.89  dd= -80.46%  trades= 1216
+  S19_CMF_Cross             end=$     1.48  ret=  -99.26%  sharpe=  -6.79  pf= 0.72  dd= -99.28%  trades= 2193
+  S20_Williams_R            end=$     4.60  ret=  -97.70%  sharpe=  -4.41  pf= 0.82  dd= -97.75%  trades= 2343
+
+---- OOS (unchanged strategies, unchanged params) ----
+  S01_EMA_Cross             end=$    18.72  ret=  -90.64%  sharpe=  -4.36  pf= 0.74  dd= -90.71%  trades= 1139
+  S02_RSI2_Reversion        end=$    56.65  ret=  -71.67%  sharpe=  -2.03  pf= 0.87  dd= -75.02%  trades=  962
+  S03_BB_Breakout           end=$    10.64  ret=  -94.68%  sharpe=  -4.76  pf= 0.77  dd= -94.68%  trades= 1310
+  S04_BB_Fade               end=$    12.18  ret=  -93.91%  sharpe=  -5.38  pf= 0.75  dd= -93.97%  trades= 1412
+  S05_Donchian20            end=$    24.22  ret=  -87.89%  sharpe=  -3.28  pf= 0.88  dd= -88.05%  trades= 1199
+  S06_MACD_Cross            end=$    15.22  ret=  -92.39%  sharpe=  -4.39  pf= 0.75  dd= -92.79%  trades= 1271
+  S07_Stoch_Cross           end=$     5.72  ret=  -97.14%  sharpe=  -6.15  pf= 0.73  dd= -97.16%  trades= 1426
+  S08_VWAP_Reversion        end=$    10.74  ret=  -94.63%  sharpe=  -5.00  pf= 0.74  dd= -94.83%  trades= 1344
+  S09_VWAP_Breakout         end=$    14.07  ret=  -92.96%  sharpe=  -5.07  pf= 0.74  dd= -93.05%  trades= 1192
+  S10_Keltner_Breakout      end=$    17.74  ret=  -91.13%  sharpe=  -4.17  pf= 0.78  dd= -91.39%  trades= 1086
+  S11_SuperTrend            end=$    60.44  ret=  -69.78%  sharpe=  -2.74  pf= 0.75  dd= -70.19%  trades=  753
+  S12_HeikinAshi            end=$     2.82  ret=  -98.59%  sharpe=  -8.53  pf= 0.64  dd= -98.64%  trades= 1835
+  S13_OpeningRange          end=$   102.89  ret=  -48.56%  sharpe=  -1.50  pf= 0.87  dd= -52.76%  trades=  642
+  S14_ParabolicSAR          end=$    10.75  ret=  -94.63%  sharpe=  -6.10  pf= 0.67  dd= -94.85%  trades= 1438
+  S15_ADX_Trend             end=$    66.70  ret=  -66.65%  sharpe=  -3.23  pf= 0.72  dd= -69.33%  trades=  487
+  S16_Volume_Fade           end=$    70.20  ret=  -64.90%  sharpe=  -2.24  pf= 0.79  dd= -67.61%  trades=  533
+  S17_ZScore_Reversion      end=$    12.18  ret=  -93.91%  sharpe=  -5.38  pf= 0.75  dd= -93.97%  trades= 1412
+  S18_Momentum3             end=$   154.43  ret=  -22.78%  sharpe=  -0.39  pf= 1.02  dd= -38.48%  trades=  627
+  S19_CMF_Cross             end=$     6.55  ret=  -96.73%  sharpe=  -7.25  pf= 0.63  dd= -96.83%  trades= 1506
+  S20_Williams_R            end=$     3.37  ret=  -98.31%  sharpe=  -7.46  pf= 0.63  dd= -98.34%  trades= 1649
+
+------------------  TIMEFRAME 4h  ------------------
+  hold=30b  cooldown=2b  bars/year=2190
+
+---- IS ----
+  S01_EMA_Cross             end=$   194.62  ret=   -2.69%  sharpe=  -0.04  pf= 1.01  dd= -14.70%  trades=  194
+  S02_RSI2_Reversion        end=$   250.89  ret=  +25.45%  sharpe=  +0.82  pf= 1.27  dd=  -7.23%  trades=  183
+  S03_BB_Breakout           end=$   308.59  ret=  +54.29%  sharpe=  +1.19  pf= 1.34  dd= -12.34%  trades=  238
+  S04_BB_Fade               end=$   153.11  ret=  -23.44%  sharpe=  -0.64  pf= 0.91  dd= -30.96%  trades=  345
+  S05_Donchian20            end=$   208.47  ret=   +4.23%  sharpe=  +0.18  pf= 1.06  dd= -15.07%  trades=  230
+  S06_MACD_Cross            end=$   157.15  ret=  -21.42%  sharpe=  -0.64  pf= 0.86  dd= -30.94%  trades=  260
+  S07_Stoch_Cross           end=$   194.92  ret=   -2.54%  sharpe=  +0.00  pf= 1.01  dd= -18.40%  trades=  342
+  S08_VWAP_Reversion        end=$   218.92  ret=   +9.46%  sharpe=  +0.24  pf= 1.06  dd= -29.13%  trades=  368
+  S09_VWAP_Breakout         end=$   206.03  ret=   +3.01%  sharpe=  +0.28  pf= 1.25  dd=  -4.53%  trades=   25
+  S10_Keltner_Breakout      end=$   241.12  ret=  +20.56%  sharpe=  +0.64  pf= 1.21  dd= -13.73%  trades=  169
+  S11_SuperTrend            end=$   207.79  ret=   +3.90%  sharpe=  +0.24  pf= 1.11  dd=  -7.08%  trades=  106
+  S12_HeikinAshi            end=$   118.65  ret=  -40.67%  sharpe=  -1.16  pf= 0.83  dd= -45.02%  trades=  655
+  S13_OpeningRange          end=$   200.00  ret=   +0.00%  sharpe=  +0.00  pf= 0.00  dd=  +0.00%  trades=    0
+  S14_ParabolicSAR          end=$   153.38  ret=  -23.31%  sharpe=  -0.92  pf= 0.81  dd= -25.63%  trades=  273
+  S15_ADX_Trend             end=$   227.04  ret=  +13.52%  sharpe=  +0.71  pf= 1.43  dd=  -4.48%  trades=   78
+  S16_Volume_Fade           end=$   197.01  ret=   -1.50%  sharpe=  -0.03  pf= 1.00  dd= -11.71%  trades=   87
+  S17_ZScore_Reversion      end=$   153.11  ret=  -23.44%  sharpe=  -0.64  pf= 0.91  dd= -30.96%  trades=  345
+  S18_Momentum3             end=$   195.30  ret=   -2.35%  sharpe=  +0.04  pf= 1.02  dd= -16.95%  trades=  493
+  S19_CMF_Cross             end=$   113.65  ret=  -43.17%  sharpe=  -1.68  pf= 0.71  dd= -44.21%  trades=  405
+  S20_Williams_R            end=$   214.07  ret=   +7.04%  sharpe=  +0.23  pf= 1.06  dd= -27.65%  trades=  453
+
+---- OOS (unchanged strategies, unchanged params) ----
+  S01_EMA_Cross             end=$   198.79  ret=   -0.61%  sharpe=  +0.03  pf= 1.03  dd= -13.07%  trades=  135
+  S02_RSI2_Reversion        end=$   212.10  ret=   +6.05%  sharpe=  +0.34  pf= 1.11  dd= -15.60%  trades=  126
+  S03_BB_Breakout           end=$   176.37  ret=  -11.81%  sharpe=  -0.42  pf= 0.93  dd= -23.71%  trades=  177
+  S04_BB_Fade               end=$   187.06  ret=   -6.47%  sharpe=  -0.16  pf= 0.98  dd= -28.16%  trades=  244
+  S05_Donchian20            end=$   221.26  ret=  +10.63%  sharpe=  +0.48  pf= 1.13  dd= -15.27%  trades=  164
+  S06_MACD_Cross            end=$   191.34  ret=   -4.33%  sharpe=  -0.11  pf= 0.99  dd= -16.98%  trades=  188
+  S07_Stoch_Cross           end=$   142.19  ret=  -28.91%  sharpe=  -1.07  pf= 0.81  dd= -38.94%  trades=  272
+  S08_VWAP_Reversion        end=$   220.74  ret=  +10.37%  sharpe=  +0.32  pf= 1.09  dd= -24.08%  trades=  255
+  S09_VWAP_Breakout         end=$   186.66  ret=   -6.67%  sharpe=  -0.93  pf= 0.51  dd=  -8.98%  trades=   18
+  S10_Keltner_Breakout      end=$   175.14  ret=  -12.43%  sharpe=  -0.52  pf= 0.90  dd= -20.10%  trades=  137
+  S11_SuperTrend            end=$   205.52  ret=   +2.76%  sharpe=  +0.24  pf= 1.11  dd=  -4.99%  trades=   80
+  S12_HeikinAshi            end=$   154.57  ret=  -22.72%  sharpe=  -0.75  pf= 0.91  dd= -28.91%  trades=  456
+  S13_OpeningRange          end=$   200.00  ret=   +0.00%  sharpe=  +0.00  pf= 0.00  dd=  +0.00%  trades=    0
+  S14_ParabolicSAR          end=$   157.24  ret=  -21.38%  sharpe=  -1.20  pf= 0.76  dd= -22.82%  trades=  194
+  S15_ADX_Trend             end=$   198.24  ret=   -0.88%  sharpe=  -0.04  pf= 1.00  dd= -10.43%  trades=   57
+  S16_Volume_Fade           end=$   211.45  ret=   +5.72%  sharpe=  +0.39  pf= 1.19  dd=  -7.88%  trades=   61
+  S17_ZScore_Reversion      end=$   187.06  ret=   -6.47%  sharpe=  -0.16  pf= 0.98  dd= -28.16%  trades=  244
+  S18_Momentum3             end=$   220.85  ret=  +10.43%  sharpe=  +0.36  pf= 1.08  dd= -17.31%  trades=  347
+  S19_CMF_Cross             end=$   183.25  ret=   -8.38%  sharpe=  -0.29  pf= 0.97  dd= -16.54%  trades=  255
+  S20_Williams_R            end=$   124.10  ret=  -37.95%  sharpe=  -1.48  pf= 0.77  dd= -43.89%  trades=  336
+
+------------------  TIMEFRAME 1D  ------------------
+  hold=20b  cooldown=1b  bars/year=365
+
+---- IS ----
+  S01_EMA_Cross             end=$   212.86  ret=   +6.43%  sharpe=  +0.48  pf= 1.38  dd=  -7.18%  trades=   35
+  S02_RSI2_Reversion        end=$   207.17  ret=   +3.59%  sharpe=  +0.29  pf= 1.19  dd=  -6.85%  trades=   41
+  S03_BB_Breakout           end=$   197.84  ret=   -1.08%  sharpe=  -0.04  pf= 0.97  dd=  -6.64%  trades=   48
+  S04_BB_Fade               end=$   196.09  ret=   -1.96%  sharpe=  -0.10  pf= 0.95  dd=  -7.81%  trades=   63
+  S05_Donchian20            end=$   209.74  ret=   +4.87%  sharpe=  +0.34  pf= 1.21  dd=  -5.06%  trades=   47
+  S06_MACD_Cross            end=$   204.38  ret=   +2.19%  sharpe=  +0.17  pf= 1.09  dd=  -7.03%  trades=   46
+  S07_Stoch_Cross           end=$   202.56  ret=   +1.28%  sharpe=  +0.10  pf= 1.05  dd=  -7.33%  trades=   58
+  S08_VWAP_Reversion        end=$   246.53  ret=  +23.26%  sharpe=  +0.65  pf= 1.53  dd= -10.41%  trades=   74
+  S09_VWAP_Breakout         end=$   208.36  ret=   +4.18%  sharpe=  +0.52  pf= 1.84  dd=  -2.02%  trades=   11
+  S10_Keltner_Breakout      end=$   216.20  ret=   +8.10%  sharpe=  +0.64  pf= 1.59  dd=  -4.65%  trades=   31
+  S11_SuperTrend            end=$   208.64  ret=   +4.32%  sharpe=  +0.56  pf= 1.66  dd=  -2.18%  trades=   22
+  S12_HeikinAshi            end=$   183.28  ret=   -8.36%  sharpe=  -0.50  pf= 0.81  dd= -12.66%  trades=  113
+  S13_OpeningRange          end=$   200.00  ret=   +0.00%  sharpe=  +0.00  pf= 0.00  dd=  +0.00%  trades=    0
+  S14_ParabolicSAR          end=$   197.33  ret=   -1.33%  sharpe=  -0.08  pf= 0.95  dd= -10.05%  trades=   55
+  S15_ADX_Trend             end=$   191.48  ret=   -4.26%  sharpe=  -0.63  pf= 0.47  dd=  -5.16%  trades=   13
+  S16_Volume_Fade           end=$   181.68  ret=   -9.16%  sharpe=  -1.55  pf= 0.15  dd= -10.25%  trades=   14
+  S17_ZScore_Reversion      end=$   196.09  ret=   -1.96%  sharpe=  -0.10  pf= 0.95  dd=  -7.81%  trades=   63
+  S18_Momentum3             end=$   223.56  ret=  +11.78%  sharpe=  +0.54  pf= 1.24  dd=  -7.41%  trades=  103
+  S19_CMF_Cross             end=$   180.90  ret=   -9.55%  sharpe=  -0.68  pf= 0.71  dd= -11.14%  trades=   77
+  S20_Williams_R            end=$   226.12  ret=  +13.06%  sharpe=  +0.70  pf= 1.36  dd=  -7.30%  trades=   75
+
+---- OOS (unchanged strategies, unchanged params) ----
+  S01_EMA_Cross             end=$   195.16  ret=   -2.42%  sharpe=  -0.27  pf= 0.84  dd=  -8.31%  trades=   25
+  S02_RSI2_Reversion        end=$   198.57  ret=   -0.72%  sharpe=  -0.06  pf= 0.96  dd=  -5.94%  trades=   24
+  S03_BB_Breakout           end=$   203.31  ret=   +1.65%  sharpe=  +0.17  pf= 1.09  dd=  -7.96%  trades=   33
+  S04_BB_Fade               end=$   190.50  ret=   -4.75%  sharpe=  -0.40  pf= 0.84  dd=  -9.35%  trades=   47
+  S05_Donchian20            end=$   200.55  ret=   +0.28%  sharpe=  +0.05  pf= 1.02  dd=  -4.70%  trades=   34
+  S06_MACD_Cross            end=$   205.22  ret=   +2.61%  sharpe=  +0.30  pf= 1.20  dd=  -5.30%  trades=   28
+  S07_Stoch_Cross           end=$   209.26  ret=   +4.63%  sharpe=  +0.37  pf= 1.18  dd=  -6.29%  trades=   54
+  S08_VWAP_Reversion        end=$   200.00  ret=   +0.00%  sharpe=  +0.03  pf= 1.01  dd= -13.85%  trades=   53
+  S09_VWAP_Breakout         end=$   194.66  ret=   -2.67%  sharpe=  -0.61  pf= 0.48  dd=  -4.56%  trades=    7
+  S10_Keltner_Breakout      end=$   231.66  ret=  +15.83%  sharpe=  +1.47  pf= 3.21  dd=  -4.02%  trades=   18
+  S11_SuperTrend            end=$   196.37  ret=   -1.81%  sharpe=  -0.52  pf= 0.63  dd=  -3.23%  trades=   17
+  S12_HeikinAshi            end=$   185.34  ret=   -7.33%  sharpe=  -0.55  pf= 0.81  dd= -11.28%  trades=   78
+  S13_OpeningRange          end=$   200.00  ret=   +0.00%  sharpe=  +0.00  pf= 0.00  dd=  +0.00%  trades=    0
+  S14_ParabolicSAR          end=$   198.88  ret=   -0.56%  sharpe=  -0.03  pf= 0.99  dd=  -6.33%  trades=   44
+  S15_ADX_Trend             end=$   195.03  ret=   -2.48%  sharpe=  -1.42  pf= 0.00  dd=  -2.48%  trades=    7
+  S16_Volume_Fade           end=$   195.21  ret=   -2.39%  sharpe=  -0.53  pf= 0.53  dd=  -4.01%  trades=    7
+  S17_ZScore_Reversion      end=$   190.50  ret=   -4.75%  sharpe=  -0.40  pf= 0.84  dd=  -9.35%  trades=   47
+  S18_Momentum3             end=$   213.05  ret=   +6.52%  sharpe=  +0.41  pf= 1.16  dd=  -6.57%  trades=   85
+  S19_CMF_Cross             end=$   182.77  ret=   -8.61%  sharpe=  -1.01  pf= 0.57  dd= -10.19%  trades=   48
+  S20_Williams_R            end=$   194.25  ret=   -2.88%  sharpe=  -0.19  pf= 0.92  dd=  -7.71%  trades=   61
+
+================================================================
+CROSS-TIMEFRAME OOS LEADERBOARD (ranked by OOS end equity)
+================================================================
+
+TF   Strategy                       End $       Ret     PF   Sharpe        DD  Trades
+1D   S10_Keltner_Breakout      $  231.66    +15.8%   3.21    +1.47     -4.0%      18
+4h   S05_Donchian20            $  221.26    +10.6%   1.13    +0.48    -15.3%     164
+4h   S18_Momentum3             $  220.85    +10.4%   1.08    +0.36    -17.3%     347
+4h   S08_VWAP_Reversion        $  220.74    +10.4%   1.09    +0.32    -24.1%     255
+1D   S18_Momentum3             $  213.05     +6.5%   1.16    +0.41     -6.6%      85
+4h   S02_RSI2_Reversion        $  212.10     +6.0%   1.11    +0.34    -15.6%     126
+4h   S16_Volume_Fade           $  211.45     +5.7%   1.19    +0.39     -7.9%      61
+1D   S07_Stoch_Cross           $  209.26     +4.6%   1.18    +0.37     -6.3%      54
+4h   S11_SuperTrend            $  205.52     +2.8%   1.11    +0.24     -5.0%      80
+1D   S06_MACD_Cross            $  205.22     +2.6%   1.20    +0.30     -5.3%      28
+1D   S03_BB_Breakout           $  203.31     +1.7%   1.09    +0.17     -8.0%      33
+1D   S05_Donchian20            $  200.55     +0.3%   1.02    +0.05     -4.7%      34
+4h   S13_OpeningRange          $  200.00     +0.0%   0.00    +0.00     +0.0%       0
+1D   S08_VWAP_Reversion        $  200.00     +0.0%   1.01    +0.03    -13.9%      53
+1D   S13_OpeningRange          $  200.00     +0.0%   0.00    +0.00     +0.0%       0
+1D   S14_ParabolicSAR          $  198.88     -0.6%   0.99    -0.03     -6.3%      44
+4h   S01_EMA_Cross             $  198.79     -0.6%   1.03    +0.03    -13.1%     135
+1D   S02_RSI2_Reversion        $  198.57     -0.7%   0.96    -0.06     -5.9%      24
+4h   S15_ADX_Trend             $  198.24     -0.9%   1.00    -0.04    -10.4%      57
+1D   S11_SuperTrend            $  196.37     -1.8%   0.63    -0.52     -3.2%      17
+1D   S16_Volume_Fade           $  195.21     -2.4%   0.53    -0.53     -4.0%       7
+1D   S01_EMA_Cross             $  195.16     -2.4%   0.84    -0.27     -8.3%      25
+1D   S15_ADX_Trend             $  195.03     -2.5%   0.00    -1.42     -2.5%       7
+1D   S09_VWAP_Breakout         $  194.66     -2.7%   0.48    -0.61     -4.6%       7
+1D   S20_Williams_R            $  194.25     -2.9%   0.92    -0.19     -7.7%      61
+
+--- Strategies with OOS profit factor > 1.0 (genuine edge) ---
+  1D  S10_Keltner_Breakout        end=$  231.66  ret= +15.83%  PF=3.210  sharpe=+1.47  trades=18
+  1D  S06_MACD_Cross              end=$  205.22  ret=  +2.61%  PF=1.201  sharpe=+0.30  trades=28
+  4h  S16_Volume_Fade             end=$  211.45  ret=  +5.72%  PF=1.188  sharpe=+0.39  trades=61
+  1D  S07_Stoch_Cross             end=$  209.26  ret=  +4.63%  PF=1.178  sharpe=+0.37  trades=54
+  1D  S18_Momentum3               end=$  213.05  ret=  +6.52%  PF=1.157  sharpe=+0.41  trades=85
+  4h  S05_Donchian20              end=$  221.26  ret= +10.63%  PF=1.127  sharpe=+0.48  trades=164
+  4h  S02_RSI2_Reversion          end=$  212.10  ret=  +6.05%  PF=1.113  sharpe=+0.34  trades=126
+  4h  S11_SuperTrend              end=$  205.52  ret=  +2.76%  PF=1.110  sharpe=+0.24  trades=80
+  1D  S03_BB_Breakout             end=$  203.31  ret=  +1.65%  PF=1.093  sharpe=+0.17  trades=33
+  4h  S08_VWAP_Reversion          end=$  220.74  ret= +10.37%  PF=1.090  sharpe=+0.32  trades=255
+  4h  S18_Momentum3               end=$  220.85  ret= +10.43%  PF=1.078  sharpe=+0.36  trades=347
+  4h  S01_EMA_Cross               end=$  198.79  ret=  -0.61%  PF=1.026  sharpe=+0.03  trades=135
+  1D  S05_Donchian20              end=$  200.55  ret=  +0.28%  PF=1.023  sharpe=+0.05  trades=34
+  15m S18_Momentum3               end=$  154.43  ret= -22.78%  PF=1.023  sharpe=-0.39  trades=627
+  1D  S08_VWAP_Reversion          end=$  200.00  ret=  +0.00%  PF=1.014  sharpe=+0.03  trades=53
+  4h  S15_ADX_Trend               end=$  198.24  ret=  -0.88%  PF=1.004  sharpe=-0.04  trades=57
+
+results/multi_tf_results.json saved.
