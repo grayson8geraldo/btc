@@ -1,0 +1,42 @@
+//@version=5
+// =====================================================================
+//  S16 · Volume-Spike Fade                             (TOP-10, rank #3)
+// =====================================================================
+//  Idea:
+//      Identify volume spikes (z-score > 3 vs. 20-bar mean).
+//      If the spike bar closed DOWN >0.5%, fade it LONG.
+//      If the spike bar closed UP   >0.5%, fade it SHORT.
+//      Stop = ±1.5 ATR(14), TP = 2R.
+//  Matches the Python strategy (s16_volume_fade).
+// =====================================================================
+strategy("S16 Volume Fade",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+volMa = ta.sma(volume, 20)
+volSd = ta.stdev(volume, 20)
+z     = (volume - volMa) / volSd
+ret   = close/close[1] - 1
+a     = ta.atr(14)
+
+longCond  = z > 3 and ret < -0.005
+shortCond = z > 3 and ret >  0.005
+
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - 1.5*a
+    tp   = close + 2*(close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+if shortCond and strategy.position_size == 0
+    stop = close + 1.5*a
+    tp   = close - 2*(stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

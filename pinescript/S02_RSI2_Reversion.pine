@@ -1,0 +1,61 @@
+//@version=5
+// =====================================================================
+//  S02 · RSI(2) Mean-Reversion                (TOP-10 tournament, rank #1)
+// =====================================================================
+//  Idea (Connors style):
+//      BUY  when RSI(2) < 10 AND price is above the 200-EMA trend filter
+//      SELL when RSI(2) > 90 AND price is below the 200-EMA
+//  Stop = ±2 · ATR(14)
+//  Take-profit = 2R (fixed R multiple)
+//  Matches the Python strategy exactly (s02_rsi2_reversion).
+// =====================================================================
+strategy("S02 RSI2 Reversion",
+     overlay=true,
+     initial_capital=200,
+     default_qty_type=strategy.percent_of_equity,
+     default_qty_value=100,
+     commission_type=strategy.commission.percent,
+     commission_value=0.04,
+     slippage=2,
+     process_orders_on_close=false)
+
+// ---- parameters (identical to Python) ----
+rsiLen    = 2
+rsiLo     = 10
+rsiHi     = 90
+trendLen  = 200
+atrLen    = 14
+atrMult   = 2.0
+rMultiple = 2.0
+
+r     = ta.rsi(close, rsiLen)
+trend = ta.ema(close, trendLen)
+a     = ta.atr(atrLen)
+
+longCond  = r < rsiLo and close > trend
+shortCond = r > rsiHi and close < trend
+
+plot(trend, "EMA200", color=color.new(color.orange, 0))
+plot(r,     "RSI2",  display=display.data_window)
+bgcolor(longCond  ? color.new(color.green,85) : na)
+bgcolor(shortCond ? color.new(color.red,  85) : na)
+plotshape(longCond,  title="LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, size=size.tiny, text="L")
+plotshape(shortCond, title="SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   size=size.tiny, text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - atrMult * a
+    tp   = close + rMultiple * (close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+
+if shortCond and strategy.position_size == 0
+    stop = close + atrMult * a
+    tp   = close - rMultiple * (stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+
+// Time-stop: close after 96 bars (24h on 15m)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

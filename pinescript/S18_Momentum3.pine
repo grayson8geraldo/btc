@@ -1,0 +1,48 @@
+//@version=5
+// =====================================================================
+//  S18 · 3-Bar Momentum Continuation    🏆 OOS TOURNAMENT WINNER 🏆
+// =====================================================================
+//  Idea:
+//      momentum = close / close[3] - 1
+//      BUY  when momentum > +1%  AND  close > EMA50 (trend filter)
+//      SELL when momentum < -1%  AND  close < EMA50
+//  Stop = ±1.5 · ATR(14), TP = 2R.
+//  Matches the Python strategy (s18_momentum3).
+//
+//  Out-of-sample result (2024-01 .. 2026-03, CONS profile):
+//      $200 → $154.43  ·  ret -22.78%  ·  PF 1.02  ·  trades 627
+//      (Winner of the 10-strategy OOS tournament, but still a losing
+//       strategy in absolute terms — see the README for analysis.)
+// =====================================================================
+strategy("S18 Momentum-3 🏆",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+mom = close / close[3] - 1
+e50 = ta.ema(close, 50)
+a   = ta.atr(14)
+
+longCond  = mom >  0.01 and close > e50
+shortCond = mom < -0.01 and close < e50
+
+plot(e50, "EMA50", color=color.new(color.orange, 0), linewidth=2)
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, size=size.small, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   size=size.small, text="S")
+bgcolor(longCond  ? color.new(color.green, 90) : na)
+bgcolor(shortCond ? color.new(color.red,   90) : na)
+
+if longCond and strategy.position_size == 0
+    stop = close - 1.5*a
+    tp   = close + 2*(close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+if shortCond and strategy.position_size == 0
+    stop = close + 1.5*a
+    tp   = close - 2*(stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

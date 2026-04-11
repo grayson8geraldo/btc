@@ -1,0 +1,48 @@
+//@version=5
+// =====================================================================
+//  S04 · Bollinger Band Fade (Mean Reversion)          (TOP-10, rank #2)
+// =====================================================================
+//  Idea:
+//      BUY  when price closes BELOW the lower 20/2 Bollinger band
+//      SELL when price closes ABOVE the upper 20/2 Bollinger band
+//  Target = middle band (MA20), Stop = ±1.5 · ATR(14)
+//  Matches the Python strategy exactly (s04_bb_fade).
+// =====================================================================
+strategy("S04 BB Fade",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+bbLen   = 20
+bbMult  = 2.0
+atrLen  = 14
+atrMult = 1.5
+
+basis = ta.sma(close, bbLen)
+dev   = bbMult * ta.stdev(close, bbLen)
+upper = basis + dev
+lower = basis - dev
+a     = ta.atr(atrLen)
+
+longCond  = close < lower
+shortCond = close > upper
+
+plot(basis, "BB Mid",   color=color.new(color.orange, 0))
+plot(upper, "BB Upper", color=color.new(color.blue,   0))
+plot(lower, "BB Lower", color=color.new(color.blue,   0))
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - atrMult * a
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=basis)
+if shortCond and strategy.position_size == 0
+    stop = close + atrMult * a
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=basis)
+
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

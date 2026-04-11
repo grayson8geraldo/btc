@@ -1,0 +1,42 @@
+//@version=5
+// =====================================================================
+//  S11 · SuperTrend (10 · 3.0)                         (TOP-10, rank #9)
+// =====================================================================
+//  Idea:
+//      Classic SuperTrend(10, 3).  BUY on flip to bullish, SELL on flip to bearish.
+//      Stop = SuperTrend line itself (matches Python engine).
+//  Matches the Python strategy (s11_supertrend).
+// =====================================================================
+strategy("S11 SuperTrend",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+stPeriod = 10
+stMult   = 3.0
+
+[st, dir] = ta.supertrend(stMult, stPeriod)
+longCond  = dir ==  1 and dir[1] == -1
+shortCond = dir == -1 and dir[1] ==  1
+
+plot(st, "SuperTrend", color = dir==1 ? color.new(color.green,0) : color.new(color.red,0),
+     style=plot.style_linebr, linewidth=2)
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=st)
+if shortCond and strategy.position_size == 0
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=st)
+
+// exit on flip
+if strategy.position_size > 0 and dir == -1
+    strategy.close("L")
+if strategy.position_size < 0 and dir ==  1
+    strategy.close("S")
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

@@ -1,0 +1,53 @@
+//@version=5
+// =====================================================================
+//  S13 · Opening-Range Breakout (first 4h UTC)         (TOP-10, rank #6)
+// =====================================================================
+//  Idea:
+//      Define OR = [high..low] of the first 16 bars (4 hours) of each UTC day.
+//      BUY  on first close above OR-high later that day.
+//      SELL on first close below OR-low later that day.
+//      Stops = opposite side of OR.
+//  Matches the Python strategy (s13_opening_range).
+// =====================================================================
+strategy("S13 Opening Range",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+orBarsCount = 16   // 4 hours on 15-min chart
+
+// UTC session reset
+var float orHigh = na
+var float orLow  = na
+var int   barsInDay = 0
+newDay = ta.change(dayofweek(time, "UTC"))
+if newDay
+    orHigh := na
+    orLow  := na
+    barsInDay := 0
+barsInDay += 1
+
+if barsInDay <= orBarsCount
+    orHigh := na(orHigh) ? high : math.max(orHigh, high)
+    orLow  := na(orLow ) ? low  : math.min(orLow,  low)
+
+inWindow = barsInDay > orBarsCount and not na(orHigh)
+
+longCond  = inWindow and close > orHigh and close[1] <= orHigh[1]
+shortCond = inWindow and close < orLow  and close[1] >= orLow[1]
+
+plot(orHigh, "OR High", color=color.new(color.blue,  0), style=plot.style_linebr)
+plot(orLow,  "OR Low",  color=color.new(color.blue,  0), style=plot.style_linebr)
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=orLow, limit=close + 2*(close-orLow))
+if shortCond and strategy.position_size == 0
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=orHigh, limit=close - 2*(orHigh-close))
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

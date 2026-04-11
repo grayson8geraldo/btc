@@ -1,0 +1,42 @@
+//@version=5
+// =====================================================================
+//  S20 · Williams %R Reversal                         (TOP-10, rank #10)
+// =====================================================================
+//  Idea:
+//      BUY  when %R crosses UP   through −80  (exit oversold)
+//      SELL when %R crosses DOWN through −20  (exit overbought)
+//  Stop = ±1.5 · ATR(14), TP = 2R.
+//  Matches the Python strategy (s20_williams_r).
+// =====================================================================
+strategy("S20 Williams %R",
+     overlay=false, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+wrLen = 14
+wr = ta.wpr(wrLen)
+a  = ta.atr(14)
+
+longCond  = ta.crossover(wr,  -80)
+shortCond = ta.crossunder(wr, -20)
+
+plot(wr, "Williams %R", color=color.new(color.blue,0))
+hline(-20, color=color.new(color.red,  50))
+hline(-80, color=color.new(color.green,50))
+plotshape(longCond,  "LONG",  location=location.bottom,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.top,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - 1.5*a
+    tp   = close + 2*(close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+if shortCond and strategy.position_size == 0
+    stop = close + 1.5*a
+    tp   = close - 2*(stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

@@ -1,0 +1,48 @@
+//@version=5
+// =====================================================================
+//  S06 · MACD Signal Cross                             (TOP-10, rank #8)
+// =====================================================================
+//  Idea (standard 12/26/9):
+//      BUY  when MACD crosses ABOVE its signal line while MACD < 0
+//      SELL when MACD crosses BELOW its signal line while MACD > 0
+//  Stop = ±1.5 · ATR(14), TP = 2R
+//  Matches the Python strategy (s06_macd_cross).
+// =====================================================================
+strategy("S06 MACD Cross",
+     overlay=false, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+fast = 12
+slow = 26
+sig  = 9
+atrLen = 14; atrMult = 1.5; rMul = 2.0
+
+[macdLine, signalLine, histLine] = ta.macd(close, fast, slow, sig)
+a = ta.atr(atrLen)
+
+longCond  = ta.crossover(macdLine,  signalLine) and macdLine < 0
+shortCond = ta.crossunder(macdLine, signalLine) and macdLine > 0
+
+plot(macdLine,   "MACD",   color=color.new(color.blue,   0))
+plot(signalLine, "Signal", color=color.new(color.orange, 0))
+plot(histLine,   "Hist",   style=plot.style_columns,
+     color=histLine>=0 ? color.new(color.green,50) : color.new(color.red,50))
+hline(0)
+plotshape(longCond,  "LONG",  location=location.bottom,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.top,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - atrMult*a
+    tp   = close + rMul*(close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+if shortCond and strategy.position_size == 0
+    stop = close + atrMult*a
+    tp   = close - rMul*(stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")

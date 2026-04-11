@@ -1,0 +1,49 @@
+//@version=5
+// =====================================================================
+//  S10 · Keltner Channel Breakout                      (TOP-10, rank #7)
+// =====================================================================
+//  Idea:
+//      Channels = EMA(20)  ±  2 · ATR(20)
+//      BUY  on first close above upper channel
+//      SELL on first close below lower channel
+//  Stop = ±1.5 · ATR(14), TP = 2R
+//  Matches the Python strategy (s10_keltner_breakout).
+// =====================================================================
+strategy("S10 Keltner Breakout",
+     overlay=true, initial_capital=200,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.04, slippage=2)
+
+kLen  = 20
+kMult = 2.0
+atrLen=14; atrMult=1.5; rMul=2.0
+
+mid   = ta.ema(close, kLen)
+a20   = ta.atr(kLen)
+upper = mid + kMult*a20
+lower = mid - kMult*a20
+a     = ta.atr(atrLen)
+
+longCond  = ta.crossover(close,  upper)
+shortCond = ta.crossunder(close, lower)
+
+plot(mid,   "Mid",   color=color.new(color.orange, 0))
+plot(upper, "Upper", color=color.new(color.blue,   0))
+plot(lower, "Lower", color=color.new(color.blue,   0))
+plotshape(longCond,  "LONG",  location=location.belowbar,
+          style=shape.triangleup,   color=color.green, text="L")
+plotshape(shortCond, "SHORT", location=location.abovebar,
+          style=shape.triangledown, color=color.red,   text="S")
+
+if longCond and strategy.position_size == 0
+    stop = close - atrMult*a
+    tp   = close + rMul*(close - stop)
+    strategy.entry("L", strategy.long)
+    strategy.exit("Lx", "L", stop=stop, limit=tp)
+if shortCond and strategy.position_size == 0
+    stop = close + atrMult*a
+    tp   = close - rMul*(stop - close)
+    strategy.entry("S", strategy.short)
+    strategy.exit("Sx", "S", stop=stop, limit=tp)
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= 96
+    strategy.close_all(comment="time")
