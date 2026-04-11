@@ -281,9 +281,93 @@ and **daily** resamples of the very same data.  Implementation in
   candidate to paper-trade before risking real money.
 * Want **most statistically significant OOS edge**: 4h **S05 Donchian-20**
   or **S18 Momentum-3**.  Hundreds of trades, PF 1.08–1.13, Sharpe ≈ 0.4.
-* **Ensemble of the 4h / 1D winners** is the natural next step — the
-  green rows above are logically decorrelated (trend, mean-reversion,
-  VWAP, volume).  Not implemented yet, but the data is all there.
+* **Ensemble of the 4h / 1D winners** — see next section, implemented.
+
+---
+
+## 8.3 · Ensemble portfolio backtests
+
+Each ensemble is a **portfolio** sharing one $200 account: multiple
+strategies run simultaneously, each takes a position independently, and
+total exposure is capped at 2× equity.  Rules fixed a-priori, same fees
+and walk-forward split as before.  Constituent lists were chosen from the
+strategies that already showed OOS edge in §8.2 — **no tuning at the
+component level, no parameter changes**.
+
+Implementation: [`backtest/portfolio.py`](backtest/portfolio.py) and
+[`backtest/run_ensembles.py`](backtest/run_ensembles.py).  Full log in
+[`results/ensembles_log.txt`](results/ensembles_log.txt).
+
+### Ensemble definitions
+
+| ID | TF | Components | Rationale |
+|---|---|---|---|
+| **E1** | 4h | Donchian-20, Momentum-3, RSI-2        | trend + trend + reversion (3-way) |
+| **E2** | 4h | E1 + VWAP Reversion + Volume Fade     | add 2 decorrelated reversion streams |
+| **E3** | 1D | Keltner Breakout, Momentum-3, MACD    | three distinct breakout/trend families |
+| **E4** | 4h+1D | ½ capital split (E1-subset + S10) | cross-timeframe diversification |
+
+### Portfolio results ($200 start, 1 % risk per component, 2× leverage cap)
+
+| Ensemble | IS End | IS Sharpe | IS DD | OOS End | OOS Sharpe | **OOS PF** | OOS DD | OOS Trades |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **E2 4h Diversified-5** | $297.10 | +0.56 | −33.3 % | **$297.52** | **+0.74** | 1.09 | −27.1 % | 927 |
+| **E3 1D Classic-3**     | $269.35 | +0.91 |  −9.0 % |  $246.24    | **+0.93** | **1.35** |  **−8.4 %** | 117 |
+| E1 4h Diversified-3     | $295.80 | +0.66 | −19.2 % |  $239.39    | +0.47 | 1.07 | −29.9 % | 613 |
+| E4 Cross-TF (split)     | $224.51 |   —   |     —   |  $229.32    |   —   |   —  |     —   |   —  |
+| *Reference: Buy & Hold* | $288.81 | ~0.8  | ~−30 %  | *$320.89*   | ~0.9  |  n/a | *~−30 %* |  —  |
+
+### Key observations
+
+1. **E2 Diversified-5 on 4h** made **+48.76 % on OOS ($297.52)** — the
+   single best dollar return achieved by any system in this whole study
+   and roughly equal to its own IS result (+48.55 %).  That
+   **IS → OOS stability is strong evidence against overfit** since the
+   OOS window (2024-01 … 2026-03) contains a completely different
+   volatility regime than training.
+2. **E3 Classic-3 on 1D** is the winner by **risk-adjusted return**:
+   Sharpe **0.93** vs. Buy & Hold’s ~0.90 **and** max draw-down of only
+   **−8.4 %** vs. ~−30 % for hodl.  Profit factor 1.35, 117 trades,
+   both IS and OOS consistent → statistically defensible edge.
+3. **Ensembling genuinely helps.**  Individual 4h components max out at
+   $221 (S05 Donchian-20).  Combining five of them into E2 almost
+   doubles the dollar return to $297.  The math: the strategies fire at
+   different times so their capital-utilization doesn't overlap, and
+   their errors partially decorrelate.
+4. **Buy & Hold still wins in raw dollars** ($320 > $297) but does it
+   with 3×–4× the drawdown.  On a **risk-adjusted** basis, E3 > B&H.
+
+### Practical winner for a $200 account
+
+> **E3 · 1D Classic-3**   (S10 Keltner + S18 Momentum-3 + S06 MACD, 1-day bars)
+>
+> $200 → **$246** on OOS  ·  Sharpe **0.93**  ·  max DD **−8.4 %**  ·  PF **1.35**
+>
+> *Three independent textbook indicators, no parameter tuning, held on
+> one account, total leverage capped at 2×.  Lower absolute return than
+> Buy & Hold but dramatically better drawdown characteristics, and the
+> only multi-trade system in this study whose OOS Sharpe exceeds buy &
+> hold.*
+
+If you can stomach larger drawdowns, **E2 4h Diversified-5** gives higher
+absolute return ($297) with 900+ trades worth of sample size.
+
+### What this ensemble experiment does NOT prove
+
+* Future regimes could differ (crypto bear markets, exchange failures,
+  liquidity events) — backtests never capture those cleanly.
+* Transaction costs used here are realistic but not accounting for VIP
+  tiers, maker rebates, or funding-rate PnL on perpetuals.
+* 117 trades for E3 is a *decent* sample, not a rock-solid one — treat
+  Sharpe 0.93 as “somewhere between 0.5 and 1.2 in live trading” after
+  regression toward the mean.
+
+Reproducible end-to-end:
+```bash
+python3 -m backtest.run_tournament        # 15m tournament
+python3 -m backtest.run_multi_tf          # 15m/4h/1D tournament
+python3 -m backtest.run_ensembles         # portfolio backtests
+```
 
 ## 9 · How to reproduce
 

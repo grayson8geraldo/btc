@@ -1,0 +1,65 @@
+
+================================================================
+ ENSEMBLE TOURNAMENT — portfolio backtest on shared $200 account
+================================================================
+
+Window boundaries:
+  4h: IS bars=6,570  OOS bars=4,554
+  1D: IS bars=1,095  OOS bars=759
+
+Benchmarks (Buy & Hold):
+  4h  B&H IS  = $288.81  (+44.41%)    OOS = $322.12  (+61.06%)
+  1D  B&H IS  = $288.47  (+44.23%)    OOS = $308.57  (+54.29%)
+
+---- individual components, OOS, for reference ----
+
+E1_4h_Diversified3  (4h):
+    [single] S05_Donchian20       end=$  221.26  ret= +10.63%  sharpe= +0.48  pf= 1.13  dd= -15.27%  trades= 164  wr= 42.1%
+    [single] S18_Momentum3        end=$  220.85  ret= +10.43%  sharpe= +0.36  pf= 1.08  dd= -17.31%  trades= 347  wr= 36.6%
+    [single] S02_RSI2_Reversion   end=$  212.10  ret=  +6.05%  sharpe= +0.34  pf= 1.11  dd= -15.60%  trades= 126  wr= 42.9%
+
+E2_4h_Diversified5  (4h):
+    [single] S05_Donchian20       end=$  221.26  ret= +10.63%  sharpe= +0.48  pf= 1.13  dd= -15.27%  trades= 164  wr= 42.1%
+    [single] S18_Momentum3        end=$  220.85  ret= +10.43%  sharpe= +0.36  pf= 1.08  dd= -17.31%  trades= 347  wr= 36.6%
+    [single] S02_RSI2_Reversion   end=$  212.10  ret=  +6.05%  sharpe= +0.34  pf= 1.11  dd= -15.60%  trades= 126  wr= 42.9%
+    [single] S08_VWAP_Reversion   end=$  220.74  ret= +10.37%  sharpe= +0.32  pf= 1.09  dd= -24.08%  trades= 255  wr= 30.6%
+    [single] S16_Volume_Fade      end=$  211.45  ret=  +5.72%  sharpe= +0.39  pf= 1.19  dd=  -7.88%  trades=  61  wr= 41.0%
+
+E3_1D_Classic3  (1D):
+    [single] S10_Keltner_Breakout  end=$  231.66  ret= +15.83%  sharpe= +1.47  pf= 3.21  dd=  -4.02%  trades=  18  wr= 61.1%
+    [single] S18_Momentum3        end=$  213.05  ret=  +6.52%  sharpe= +0.41  pf= 1.16  dd=  -6.57%  trades=  85  wr= 37.6%
+    [single] S06_MACD_Cross       end=$  205.22  ret=  +2.61%  sharpe= +0.30  pf= 1.20  dd=  -5.30%  trades=  28  wr= 42.9%
+
+================================================================
+ ENSEMBLES (shared $200 account, 1% risk per strategy, 2x cap)
+================================================================
+
+E1_4h_Diversified3  (4h, 3 components)
+  IS  E1_4h_Diversified3          end=$  295.80  ret= +47.90%  sharpe= +0.66  pf= 1.11  dd= -19.22%  trades= 850  wr= 41.2%
+  OOS E1_4h_Diversified3          end=$  239.39  ret= +19.69%  sharpe= +0.47  pf= 1.07  dd= -29.87%  trades= 613  wr= 40.6%
+
+E2_4h_Diversified5  (4h, 5 components)
+  IS  E2_4h_Diversified5          end=$  297.10  ret= +48.55%  sharpe= +0.56  pf= 1.08  dd= -33.25%  trades=1300  wr= 38.4%
+  OOS E2_4h_Diversified5          end=$  297.52  ret= +48.76%  sharpe= +0.74  pf= 1.09  dd= -27.13%  trades= 927  wr= 38.0%
+
+E3_1D_Classic3  (1D, 3 components)
+  IS  E3_1D_Classic3              end=$  269.35  ret= +34.68%  sharpe= +0.91  pf= 1.36  dd=  -9.04%  trades= 165  wr= 41.2%
+  OOS E3_1D_Classic3              end=$  246.24  ret= +23.12%  sharpe= +0.93  pf= 1.35  dd=  -8.37%  trades= 117  wr= 44.4%
+
+================================================================
+ E4  Cross-TF (4h + 1D) — not implemented as joint portfolio;
+ approximated as $100 on each of the two sub-portfolios.
+================================================================
+
+E4_CrossTF  IS  :  $100→$116.41 (4h) + $100→$108.10 (1D) = $224.51 (+12.25%)
+E4_CrossTF  OOS :  $100→$113.50 (4h) + $100→$115.83 (1D) = $229.32 (+14.66%)
+
+================================================================
+ FINAL OOS ENSEMBLE LEADERBOARD (ranked by OOS end equity)
+================================================================
+  E2_4h_Diversified5      end=$  297.52  ret=+48.76%  sharpe= +0.74  pf= 1.09  dd= -27.13%  trades= 927
+  E3_1D_Classic3          end=$  246.24  ret=+23.12%  sharpe= +0.93  pf= 1.35  dd=  -8.37%  trades= 117
+  E1_4h_Diversified3      end=$  239.39  ret=+19.69%  sharpe= +0.47  pf= 1.07  dd= -29.87%  trades= 613
+  E4_CrossTF              end=$  229.32  ret=+14.66%  (cross-TF split)
+
+results/ensembles_results.json saved.

@@ -1,0 +1,86 @@
+{
+  "E1_4h_Diversified3": {
+    "is_": {
+      "strategy": "E1_4h_Diversified3_IS",
+      "trades": 850,
+      "win_rate": 0.4118,
+      "profit_factor": 1.105,
+      "total_return": 0.479,
+      "cagr": 0.1393,
+      "sharpe": 0.664,
+      "max_dd": -0.1922,
+      "end_equity": 295.8,
+      "expectancy_R": 0.037
+    },
+    "oos": {
+      "strategy": "E1_4h_Diversified3_OOS",
+      "trades": 613,
+      "win_rate": 0.4062,
+      "profit_factor": 1.069,
+      "total_return": 0.1969,
+      "cagr": 0.0903,
+      "sharpe": 0.47,
+      "max_dd": -0.2987,
+      "end_equity": 239.39,
+      "expectancy_R": 0.028
+    }
+  },
+  "E2_4h_Diversified5": {
+    "is_": {
+      "strategy": "E2_4h_Diversified5_IS",
+      "trades": 1300,
+      "win_rate": 0.3838,
+      "profit_factor": 1.076,
+      "total_return": 0.4855,
+      "cagr": 0.141,
+      "sharpe": 0.556,
+      "max_dd": -0.3325,
+      "end_equity": 297.1,
+      "expectancy_R": 0.028
+    },
+    "oos": {
+      "strategy": "E2_4h_Diversified5_OOS",
+      "trades": 927,
+      "win_rate": 0.3797,
+      "profit_factor": 1.093,
+      "total_return": 0.4876,
+      "cagr": 0.2105,
+      "sharpe": 0.736,
+      "max_dd": -0.2713,
+      "end_equity": 297.52,
+      "expectancy_R": 0.039
+    }
+  },
+  "E3_1D_Classic3": {
+    "is_": {
+      "strategy": "E3_1D_Classic3_IS",
+      "trades": 165,
+      "win_rate": 0.4121,
+      "profit_factor": 1.364,
+      "total_return": 0.3468,
+      "cagr": 0.1043,
+      "sharpe": 0.914,
+      "max_dd": -0.0904,
+      "end_equity": 269.35,
+      "expectancy_R": 0.109
+    },
+    "oos": {
+      "strategy": "E3_1D_Classic3_OOS",
+      "trades": 117,
+      "win_rate": 0.4444,
+      "profit_factor": 1.348,
+      "total_return": 0.2312,
+      "cagr": 0.1052,
+      "sharpe": 0.932,
+      "max_dd": -0.0837,
+      "end_equity": 246.24,
+      "expectancy_R": 0.103
+    }
+  },
+  "E4_CrossTF": {
+    "is_end": 224.50748254423385,
+    "oos_end": 229.32415873759297,
+    "is_ret": 0.12253741272116936,
+    "oos_ret": 0.14662079368796488
+  }
+}
