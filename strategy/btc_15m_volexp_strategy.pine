@@ -20,32 +20,39 @@
 //  проверенных кирпичей с честным риск-менеджментом.
 // =============================================================================
 
-strategy("BTC 15m VolExp Breakout",
+strategy("BTC 15m VolExp Breakout — Barbell",
      overlay              = true,
      initial_capital      = 200,
      default_qty_type     = strategy.cash,
      default_qty_value    = 200,
-     pyramiding           = 0,
+     pyramiding           = 0,            // A и B взаимоисключающи по логике canTrade*
      calc_on_every_tick   = false,
      process_orders_on_close = true,
      commission_type      = strategy.commission.percent,
      commission_value     = 0.075,        // taker Binance Futures
      slippage             = 2,            // 2 тика * minTick BTC ≈ 0.02%
      currency             = currency.USD,
-     margin_long          = 20,           // плечо ≤ 5x → margin 20% (см. ниже)
-     margin_short         = 20)
+     margin_long          = 14,           // плечо ≤ ~7x → margin ~14%
+     margin_short         = 14)
 
 // -----------------------------------------------------------------------------
 // 1. Параметры
 // -----------------------------------------------------------------------------
-grpRisk   = "🛡  Риск-менеджмент"
-riskPct       = input.float(1.0,   "Риск на сделку, %",        minval=0.1, maxval=2.0, step=0.1, group=grpRisk)
-maxDailyLoss  = input.float(4.0,   "Макс. дневной убыток, %",  minval=1.0, maxval=10.0, step=0.5, group=grpRisk)
-maxLeverage   = input.float(5.0,   "Макс. плечо",              minval=1.0, maxval=10.0, step=0.5, group=grpRisk)
+grpRisk   = "🛡  Риск-менеджмент (агрессивный)"
+riskPct       = input.float(2.5,   "Слой A: риск на сделку, %",minval=0.1, maxval=5.0, step=0.1, group=grpRisk)
+maxDailyLoss  = input.float(6.0,   "Макс. дневной убыток, %",  minval=1.0, maxval=15.0, step=0.5, group=grpRisk)
+maxLeverage   = input.float(7.0,   "Макс. плечо",              minval=1.0, maxval=10.0, step=0.5, group=grpRisk)
 atrSLmult     = input.float(1.5,   "Стоп = ATR ×",             minval=0.8, maxval=3.0, step=0.1, group=grpRisk)
 atrTP1mult    = input.float(1.5,   "TP1 = ATR ×",              minval=0.8, maxval=3.0, step=0.1, group=grpRisk)
 tp1Frac       = input.float(0.5,   "Доля закрытия на TP1",     minval=0.2, maxval=0.8, step=0.1, group=grpRisk)
 trailATR      = input.float(3.0,   "Chandelier-трейл, ATR ×",  minval=1.5, maxval=5.0, step=0.1, group=grpRisk)
+
+// Ratcheting: при росте эквити автоматически снижаем % риска,
+// чтобы не отдать прибыль. Фиксируем «ступеньки».
+useRatchet    = input.bool(true,   "Ratcheting (↓ риск при росте)", group=grpRisk)
+ratchetLvl1   = input.float(1.5,   "Ступень 1: equity ×",      minval=1.1, maxval=5.0, step=0.1, group=grpRisk)
+ratchetLvl2   = input.float(2.0,   "Ступень 2: equity ×",      minval=1.2, maxval=10.0, step=0.1, group=grpRisk)
+ratchetLvl3   = input.float(3.0,   "Ступень 3: equity ×",      minval=1.5, maxval=20.0, step=0.1, group=grpRisk)
 
 grpEntry  = "📈  Условия входа"
 donchLen      = input.int(20,  "Длина Donchian-канала",   minval=10, maxval=60,  group=grpEntry)
@@ -71,7 +78,18 @@ useTimeFilter = input.bool(true,  "Фильтр часа дня",      group=grp
 skipHourFrom  = input.int(0,  "Пропуск с UTC ч",  minval=0, maxval=23, group=grpFilter)
 skipHourTo    = input.int(6,  "Пропуск до UTC ч", minval=0, maxval=23, group=grpFilter)
 skipWeekend   = input.bool(true, "Пропуск выходных (Sat 00–06 UTC)", group=grpFilter)
-maxTradesDay  = input.int(6,  "Макс. сделок в день",  minval=1, maxval=20, group=grpFilter)
+maxTradesDay  = input.int(4,  "Макс. сделок в день (слой A)",  minval=1, maxval=20, group=grpFilter)
+
+grpLayerB = "🚀  Слой B — event-breakout (D)"
+useLayerB       = input.bool(true, "Включить слой B (акселератор)",    group=grpLayerB)
+layerBtf        = input.timeframe("D", "ТФ для слоя B",                group=grpLayerB)
+layerBconsolLen = input.int(7,     "Окно консолидации (дней)",         minval=3, maxval=30, group=grpLayerB)
+layerBrangeLen  = input.int(30,    "Окно средней дневной амплитуды",   minval=10, maxval=90, group=grpLayerB)
+layerBsqzRatio  = input.float(0.70,"range(N) / avgRange ниже ×",       minval=0.3, maxval=1.0, step=0.05, group=grpLayerB)
+layerBatrMult   = input.float(1.0, "Слой B: стоп = daily ATR ×",       minval=0.5, maxval=2.0, step=0.1, group=grpLayerB)
+layerBrr        = input.float(5.0, "Слой B: R:R (TP / SL)",            minval=2.0, maxval=10.0, step=0.5, group=grpLayerB)
+layerBriskPct   = input.float(3.0, "Слой B: риск от эквити, %",        minval=0.5, maxval=6.0, step=0.1, group=grpLayerB)
+layerBcooldown  = input.int(7,     "Кулдаун между сделками B (дней)",  minval=1, maxval=30, group=grpLayerB)
 
 grpDates  = "📅  Период бэктеста"
 useDateRange  = input.bool(true, "Ограничить даты", group=grpDates)
@@ -120,6 +138,32 @@ htfSlopeUp   = htfEmaSlow > htfEmaSlow[emaSlopeBars] and htfEmaFast > htfEmaSlow
 htfSlopeDn   = htfEmaSlow < htfEmaSlow[emaSlopeBars] and htfEmaFast < htfEmaSlow and htfClose < htfEmaFast
 
 // -----------------------------------------------------------------------------
+// 2b. Слой B: дневная консолидация → пробой (event-breakout)
+// -----------------------------------------------------------------------------
+// Логика:
+//   - range за layerBconsolLen дней в ≤ layerBsqzRatio × среднесуточной
+//     амплитуды за layerBrangeLen дней  → сжатие
+//   - пробой вчерашнего high/low 7-дневки = сигнал
+//   - SL = 1 × daily ATR,  TP = layerBrr × SL  (асимметрия 1:5)
+//   - согласование с HTF-трендом обязательно
+dHigh = request.security(syminfo.tickerid, layerBtf, high,  barmerge.gaps_off, barmerge.lookahead_off)
+dLow  = request.security(syminfo.tickerid, layerBtf, low,   barmerge.gaps_off, barmerge.lookahead_off)
+dClose= request.security(syminfo.tickerid, layerBtf, close, barmerge.gaps_off, barmerge.lookahead_off)
+dAtr  = request.security(syminfo.tickerid, layerBtf, ta.atr(14), barmerge.gaps_off, barmerge.lookahead_off)
+
+// берём значения с [1] чтобы не опережать событие закрытия дневной свечи
+dHiN         = ta.highest(dHigh, layerBconsolLen)[1]
+dLoN         = ta.lowest(dLow,   layerBconsolLen)[1]
+dAvgRangeN   = ta.sma(dHigh - dLow, layerBconsolLen)[1]  // средняя суточная амплитуда за N дней
+dAvgRange30  = ta.sma(dHigh - dLow, layerBrangeLen)[1]   // средняя суточная амплитуда за 30 дней
+// сжатие = средняя дневная амплитуда за 7 дней меньше layerBsqzRatio от 30-дневной
+dSqueeze     = dAvgRangeN < dAvgRange30 * layerBsqzRatio
+
+// триггер = текущая 15m-свеча пересекает дневной уровень
+bSignalLong  = dSqueeze and ta.crossover(close,  dHiN) and htfSlopeUp
+bSignalShort = dSqueeze and ta.crossunder(close, dLoN) and htfSlopeDn
+
+// -----------------------------------------------------------------------------
 // 3. Фильтры
 // -----------------------------------------------------------------------------
 hourUTC = hour(time, "UTC")
@@ -139,6 +183,26 @@ dailyLossPct = 100.0 * (dayStartEq - strategy.equity) / dayStartEq
 riskBudgetOK = dailyLossPct < maxDailyLoss and tradesToday < maxTradesDay
 
 // -----------------------------------------------------------------------------
+// 3b. Ratcheting: снижаем риск по мере роста капитала.
+//     Цель — «запирать» заработанное: чем больше эквити ×, тем меньше риск.
+// -----------------------------------------------------------------------------
+gainMult   = strategy.equity / strategy.initial_capital
+ratchetMul = useRatchet ?
+     (gainMult >= ratchetLvl3 ? 0.35 :
+      gainMult >= ratchetLvl2 ? 0.55 :
+      gainMult >= ratchetLvl1 ? 0.75 : 1.0) : 1.0
+effRiskPctA = riskPct * ratchetMul
+effRiskPctB = layerBriskPct * ratchetMul
+
+// -----------------------------------------------------------------------------
+// 3c. Кулдаун между сделками слоя B
+// -----------------------------------------------------------------------------
+var int lastBbar = na
+barsSinceB = na(lastBbar) ? 10000 : bar_index - lastBbar
+// 15m: 96 баров в сутки; cooldown в барах:
+bCooldownOK = barsSinceB > layerBcooldown * 96
+
+// -----------------------------------------------------------------------------
 // 4. Условия входа
 // -----------------------------------------------------------------------------
 breakoutLong  = ta.crossover(close,  donchHi)
@@ -155,8 +219,8 @@ shortCond = breakoutShort and htfSlopeDn  and adx > adxMin and rsi < rsiShortMax
 //   риск $ = equity * riskPct/100
 //   stopDist = atr * atrSLmult
 //   qty (в монетах) = риск / stopDist, но не больше equity*leverage/price
-calcQty(stopDist) =>
-    riskUSD     = strategy.equity * riskPct / 100.0
+calcQty(stopDist, riskPctUse) =>
+    riskUSD     = strategy.equity * riskPctUse / 100.0
     rawQty      = stopDist > 0 ? riskUSD / stopDist : 0.0
     notionalCap = strategy.equity * maxLeverage
     capQty      = notionalCap / close
@@ -165,22 +229,54 @@ calcQty(stopDist) =>
 // -----------------------------------------------------------------------------
 // 6. Открытие позиций
 // -----------------------------------------------------------------------------
-canTrade = inDateRange and timeOK and riskBudgetOK and strategy.position_size == 0
+// Флаг: какой слой сейчас в рынке (чтобы не смешивать логику выхода)
+var string activeLayer = na
+if strategy.position_size == 0
+    activeLayer := na
 
-if canTrade and longCond
+flat       = strategy.position_size == 0
+canTradeA  = inDateRange and timeOK and riskBudgetOK and flat
+canTradeB  = useLayerB and inDateRange and flat and bCooldownOK
+
+// ----- Слой B имеет приоритет: сигналы редки, R:R выше -----
+if canTradeB and bSignalLong
+    stopDist = dAtr * layerBatrMult
+    qty      = calcQty(stopDist, effRiskPctB)
+    if qty > 0 and stopDist > 0
+        slPrice = close - stopDist
+        tpPrice = close + stopDist * layerBrr
+        strategy.entry("LB", strategy.long,  qty=qty)
+        strategy.exit("LB-X", from_entry="LB", limit=tpPrice, stop=slPrice)
+        activeLayer := "B"
+        lastBbar    := bar_index
+
+if canTradeB and bSignalShort
+    stopDist = dAtr * layerBatrMult
+    qty      = calcQty(stopDist, effRiskPctB)
+    if qty > 0 and stopDist > 0
+        slPrice = close + stopDist
+        tpPrice = close - stopDist * layerBrr
+        strategy.entry("SB", strategy.short, qty=qty)
+        strategy.exit("SB-X", from_entry="SB", limit=tpPrice, stop=slPrice)
+        activeLayer := "B"
+        lastBbar    := bar_index
+
+// ----- Слой A: базовый движок (15m VolExp) -----
+if canTradeA and na(activeLayer) and longCond
     stopDist = atr14 * atrSLmult
-    qty      = calcQty(stopDist)
+    qty      = calcQty(stopDist, effRiskPctA)
     if qty > 0
         slPrice  = close - stopDist
         tp1Price = close + atr14 * atrTP1mult
         strategy.entry("L",  strategy.long,  qty=qty)
         strategy.exit("L-TP1", from_entry="L", qty_percent=tp1Frac*100, limit=tp1Price, stop=slPrice)
-        strategy.exit("L-Run", from_entry="L", stop=slPrice)   // остаток — трейлим ниже
+        strategy.exit("L-Run", from_entry="L", stop=slPrice)
         tradesToday += 1
+        activeLayer := "A"
 
-if canTrade and shortCond
+if canTradeA and na(activeLayer) and shortCond
     stopDist = atr14 * atrSLmult
-    qty      = calcQty(stopDist)
+    qty      = calcQty(stopDist, effRiskPctA)
     if qty > 0
         slPrice  = close + stopDist
         tp1Price = close - atr14 * atrTP1mult
@@ -188,9 +284,10 @@ if canTrade and shortCond
         strategy.exit("S-TP1", from_entry="S", qty_percent=tp1Frac*100, limit=tp1Price, stop=slPrice)
         strategy.exit("S-Run", from_entry="S", stop=slPrice)
         tradesToday += 1
+        activeLayer := "A"
 
 // -----------------------------------------------------------------------------
-// 7. Chandelier-трейл для оставшейся части после TP1
+// 7. Chandelier-трейл для оставшейся части после TP1 (только Слой A)
 // -----------------------------------------------------------------------------
 var float trailLong  = na
 var float trailShort = na
@@ -204,15 +301,13 @@ if strategy.position_size == 0
     tp1HitL    := false
     tp1HitS    := false
 
-// детект частичного закрытия (после TP1 размер уменьшится)
-if strategy.position_size > 0
-    // высчитываем максимум с момента входа
+// Слой B работает «fire and forget»: фиксированные TP и SL, без трейла.
+// Трейл применяем только для Слоя A.
+if strategy.position_size > 0 and activeLayer == "A"
     barsIn = bar_index - math.max(strategy.opentrades.entry_bar_index(0), 0)
     hh     = ta.highest(high, math.max(barsIn + 1, 1))
     candidate = hh - atr14 * trailATR
     trailLong := na(trailLong) ? candidate : math.max(trailLong, candidate)
-    // Активируем трейл после TP1: проверяем, что текущий size меньше изначального
-    // (упрощённо — поднимаем стоп до BE минимум, как только цена достигла TP1)
     if high >= strategy.opentrades.entry_price(0) + atr14 * atrTP1mult
         tp1HitL := true
     if tp1HitL
@@ -220,7 +315,7 @@ if strategy.position_size > 0
         stopUse = math.max(trailLong, beStop)
         strategy.exit("L-Run", from_entry="L", stop=stopUse)
 
-if strategy.position_size < 0
+if strategy.position_size < 0 and activeLayer == "A"
     barsIn = bar_index - math.max(strategy.opentrades.entry_bar_index(0), 0)
     ll     = ta.lowest(low, math.max(barsIn + 1, 1))
     candidate = ll + atr14 * trailATR
@@ -250,8 +345,22 @@ plot(htfEmaSlow, "HTF EMA200", color.new(color.orange, 30), linewidth=2)
 bgcolor(htfSlopeUp ? color.new(color.green, 92) :
         htfSlopeDn ? color.new(color.red,   92) : na)
 
-plotshape(longCond,  "L sig", shape.triangleup,   location.belowbar, color.lime, size=size.tiny)
-plotshape(shortCond, "S sig", shape.triangledown, location.abovebar, color.red,  size=size.tiny)
+plotshape(longCond,  "A long",  shape.triangleup,   location.belowbar, color.lime,   size=size.tiny)
+plotshape(shortCond, "A short", shape.triangledown, location.abovebar, color.red,    size=size.tiny)
+plotshape(bSignalLong,  "B long",  shape.diamond,    location.belowbar, color.aqua,   size=size.small)
+plotshape(bSignalShort, "B short", shape.diamond,    location.abovebar, color.fuchsia,size=size.small)
+
+// Информационная метка: текущий эффективный риск %
+var label infoLbl = na
+if barstate.islast
+    label.delete(infoLbl)
+    infoLbl := label.new(bar_index, high,
+         "Eq×: "    + str.tostring(gainMult, "#.##") +
+         "\nRiskA: " + str.tostring(effRiskPctA, "#.##") + "%" +
+         "\nRiskB: " + str.tostring(effRiskPctB, "#.##") + "%" +
+         "\nLayer: " + (na(activeLayer) ? "flat" : activeLayer),
+         style=label.style_label_left, color=color.new(color.black, 20),
+         textcolor=color.white, size=size.small)
 
 // -----------------------------------------------------------------------------
 // 10. Метки IS/OOS — для глаз; реальный split делается через диапазон дат
