@@ -1,0 +1,260 @@
+//@version=6
+// =============================================================================
+//  BTCUSDT 15m — Volatility-Expansion Breakout с HTF-фильтром тренда
+// -----------------------------------------------------------------------------
+//  Гипотеза:
+//      На 15-минутном BTC устойчиво наблюдается асимметричное расширение
+//      волатильности после её сжатия (volatility cluster, Mandelbrot 1963;
+//      эмпирически подтверждается на BTC, см. Bouri et al. 2017). Если
+//      импульс на старшем ТФ направлен в ту же сторону, что и пробой
+//      Donchian-канала после фазы сжатия Боллинджера — продолжение
+//      движения статистически значимо превышает шум на горизонте 1.5–3 ATR.
+//
+//  Подход:
+//      Donchian breakout (классика, Turtle Traders) + фильтр сжатия BBW +
+//      HTF-режимный фильтр (EMA200 на 4H + наклон) + ADX-фильтр.
+//      Управление: ATR-стоп, частичная фиксация на 1.5R, остаток ведём
+//      Chandelier-трейлом 3*ATR.
+//
+//  Важно: это НЕ "уникальная" стратегия — это инженерная сборка из
+//  проверенных кирпичей с честным риск-менеджментом.
+// =============================================================================
+
+strategy("BTC 15m VolExp Breakout",
+     overlay              = true,
+     initial_capital      = 200,
+     default_qty_type     = strategy.cash,
+     default_qty_value    = 200,
+     pyramiding           = 0,
+     calc_on_every_tick   = false,
+     process_orders_on_close = true,
+     commission_type      = strategy.commission.percent,
+     commission_value     = 0.075,        // taker Binance Futures
+     slippage             = 2,            // 2 тика * minTick BTC ≈ 0.02%
+     currency             = currency.USD,
+     margin_long          = 20,           // плечо ≤ 5x → margin 20% (см. ниже)
+     margin_short         = 20)
+
+// -----------------------------------------------------------------------------
+// 1. Параметры
+// -----------------------------------------------------------------------------
+grpRisk   = "🛡  Риск-менеджмент"
+riskPct       = input.float(1.0,   "Риск на сделку, %",        minval=0.1, maxval=2.0, step=0.1, group=grpRisk)
+maxDailyLoss  = input.float(4.0,   "Макс. дневной убыток, %",  minval=1.0, maxval=10.0, step=0.5, group=grpRisk)
+maxLeverage   = input.float(5.0,   "Макс. плечо",              minval=1.0, maxval=10.0, step=0.5, group=grpRisk)
+atrSLmult     = input.float(1.5,   "Стоп = ATR ×",             minval=0.8, maxval=3.0, step=0.1, group=grpRisk)
+atrTP1mult    = input.float(1.5,   "TP1 = ATR ×",              minval=0.8, maxval=3.0, step=0.1, group=grpRisk)
+tp1Frac       = input.float(0.5,   "Доля закрытия на TP1",     minval=0.2, maxval=0.8, step=0.1, group=grpRisk)
+trailATR      = input.float(3.0,   "Chandelier-трейл, ATR ×",  minval=1.5, maxval=5.0, step=0.1, group=grpRisk)
+
+grpEntry  = "📈  Условия входа"
+donchLen      = input.int(20,  "Длина Donchian-канала",   minval=10, maxval=60,  group=grpEntry)
+bbLen         = input.int(20,  "BB длина",                minval=10, maxval=50,  group=grpEntry)
+bbMult        = input.float(2.0,"BB множитель",           minval=1.5, maxval=3.0, step=0.1, group=grpEntry)
+bbwLookback   = input.int(50,  "BBW lookback (сжатие)",   minval=20, maxval=200, group=grpEntry)
+bbwSqzPct     = input.float(25,"BBW percentile сжатия, %",minval=5,  maxval=50,  group=grpEntry)
+volMult       = input.float(1.2,"Объём > SMA(20) ×",      minval=1.0, maxval=2.5, step=0.1, group=grpEntry)
+rsiLen        = input.int(14,  "RSI length",              minval=7,  maxval=30,  group=grpEntry)
+rsiLongMin    = input.int(50,  "RSI min для long",        minval=40, maxval=60,  group=grpEntry)
+rsiShortMax   = input.int(50,  "RSI max для short",       minval=40, maxval=60,  group=grpEntry)
+
+grpRegime = "🌐  Режим рынка / HTF"
+htfTrend      = input.timeframe("240", "HTF для тренда",  group=grpRegime)
+htfEmaLen     = input.int(200, "HTF EMA длина",           minval=50, maxval=400, group=grpRegime)
+htfEmaFastLen = input.int(50,  "HTF EMA быстрая",         minval=20, maxval=100, group=grpRegime)
+emaSlopeBars  = input.int(5,   "Бары для оценки наклона", minval=2,  maxval=20,  group=grpRegime)
+adxLen        = input.int(14,  "ADX length",              minval=7,  maxval=30,  group=grpRegime)
+adxMin        = input.float(18,"ADX min (трендовость)",   minval=10, maxval=40,  step=1, group=grpRegime)
+
+grpFilter = "🧹  Фильтры"
+useTimeFilter = input.bool(true,  "Фильтр часа дня",      group=grpFilter)
+skipHourFrom  = input.int(0,  "Пропуск с UTC ч",  minval=0, maxval=23, group=grpFilter)
+skipHourTo    = input.int(6,  "Пропуск до UTC ч", minval=0, maxval=23, group=grpFilter)
+skipWeekend   = input.bool(true, "Пропуск выходных (Sat 00–06 UTC)", group=grpFilter)
+maxTradesDay  = input.int(6,  "Макс. сделок в день",  minval=1, maxval=20, group=grpFilter)
+
+grpDates  = "📅  Период бэктеста"
+useDateRange  = input.bool(true, "Ограничить даты", group=grpDates)
+startDate     = input.time(timestamp("2021-01-01T00:00"), "Start", group=grpDates)
+endDate       = input.time(timestamp("2026-04-30T00:00"), "End",   group=grpDates)
+oosDate       = input.time(timestamp("2025-01-01T00:00"), "OOS split", group=grpDates)
+inDateRange   = not useDateRange or (time >= startDate and time <= endDate)
+
+// -----------------------------------------------------------------------------
+// 2. Базовые индикаторы
+// -----------------------------------------------------------------------------
+atr14   = ta.atr(14)
+rsi     = ta.rsi(close, rsiLen)
+[macdLine, macdSig, _macdHist] = ta.macd(close, 12, 26, 9)
+
+// Donchian-канал
+donchHi = ta.highest(high, donchLen)[1]    // вчерашний high (без look-ahead)
+donchLo = ta.lowest(low,  donchLen)[1]
+
+// BB и BBW (сжатие волатильности)
+bbBasis = ta.sma(close, bbLen)
+bbDev   = bbMult * ta.stdev(close, bbLen)
+bbUp    = bbBasis + bbDev
+bbDn    = bbBasis - bbDev
+bbw     = (bbUp - bbDn) / bbBasis
+// percentile rank BBW в окне bbwLookback (сжатие = низкий percentile)
+bbwRank = 100.0 * ta.percentrank(bbw, bbwLookback)
+isSqueezed = bbwRank[1] < bbwSqzPct           // на прошлом баре было сжатие
+isExpanding = bbw > bbw[1] and bbw > ta.sma(bbw, 10)
+
+// ADX
+[diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
+
+// Объём
+volSma = ta.sma(volume, 20)
+volOK  = volume > volSma * volMult
+
+// HTF-тренд (без look-ahead: lookahead_off + barmerge.gaps_off)
+htfEmaSlow = request.security(syminfo.tickerid, htfTrend,
+                  ta.ema(close, htfEmaLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfEmaFast = request.security(syminfo.tickerid, htfTrend,
+                  ta.ema(close, htfEmaFastLen), barmerge.gaps_off, barmerge.lookahead_off)
+htfClose   = request.security(syminfo.tickerid, htfTrend,
+                  close, barmerge.gaps_off, barmerge.lookahead_off)
+htfSlopeUp   = htfEmaSlow > htfEmaSlow[emaSlopeBars] and htfEmaFast > htfEmaSlow and htfClose > htfEmaFast
+htfSlopeDn   = htfEmaSlow < htfEmaSlow[emaSlopeBars] and htfEmaFast < htfEmaSlow and htfClose < htfEmaFast
+
+// -----------------------------------------------------------------------------
+// 3. Фильтры
+// -----------------------------------------------------------------------------
+hourUTC = hour(time, "UTC")
+dowUTC  = dayofweek(time, "UTC")
+inSkipHours  = useTimeFilter and hourUTC >= skipHourFrom and hourUTC < skipHourTo
+isWeekendDip = skipWeekend and dowUTC == dayofweek.saturday and hourUTC < 6
+timeOK       = not inSkipHours and not isWeekendDip
+
+// Дневной счётчик сделок и дневной убыток
+var int   tradesToday = 0
+var float dayStartEq  = strategy.equity
+newDay = ta.change(time("D")) != 0
+if newDay
+    tradesToday := 0
+    dayStartEq  := strategy.equity
+dailyLossPct = 100.0 * (dayStartEq - strategy.equity) / dayStartEq
+riskBudgetOK = dailyLossPct < maxDailyLoss and tradesToday < maxTradesDay
+
+// -----------------------------------------------------------------------------
+// 4. Условия входа
+// -----------------------------------------------------------------------------
+breakoutLong  = ta.crossover(close,  donchHi)
+breakoutShort = ta.crossunder(close, donchLo)
+
+longCond  = breakoutLong  and htfSlopeUp  and adx > adxMin and rsi > rsiLongMin
+       and volOK and (isSqueezed or isExpanding)
+shortCond = breakoutShort and htfSlopeDn  and adx > adxMin and rsi < rsiShortMax
+       and volOK and (isSqueezed or isExpanding)
+
+// -----------------------------------------------------------------------------
+// 5. Position sizing (risk-based)
+// -----------------------------------------------------------------------------
+//   риск $ = equity * riskPct/100
+//   stopDist = atr * atrSLmult
+//   qty (в монетах) = риск / stopDist, но не больше equity*leverage/price
+calcQty(stopDist) =>
+    riskUSD     = strategy.equity * riskPct / 100.0
+    rawQty      = stopDist > 0 ? riskUSD / stopDist : 0.0
+    notionalCap = strategy.equity * maxLeverage
+    capQty      = notionalCap / close
+    math.max(0.0, math.min(rawQty, capQty))
+
+// -----------------------------------------------------------------------------
+// 6. Открытие позиций
+// -----------------------------------------------------------------------------
+canTrade = inDateRange and timeOK and riskBudgetOK and strategy.position_size == 0
+
+if canTrade and longCond
+    stopDist = atr14 * atrSLmult
+    qty      = calcQty(stopDist)
+    if qty > 0
+        slPrice  = close - stopDist
+        tp1Price = close + atr14 * atrTP1mult
+        strategy.entry("L",  strategy.long,  qty=qty)
+        strategy.exit("L-TP1", from_entry="L", qty_percent=tp1Frac*100, limit=tp1Price, stop=slPrice)
+        strategy.exit("L-Run", from_entry="L", stop=slPrice)   // остаток — трейлим ниже
+        tradesToday += 1
+
+if canTrade and shortCond
+    stopDist = atr14 * atrSLmult
+    qty      = calcQty(stopDist)
+    if qty > 0
+        slPrice  = close + stopDist
+        tp1Price = close - atr14 * atrTP1mult
+        strategy.entry("S",  strategy.short, qty=qty)
+        strategy.exit("S-TP1", from_entry="S", qty_percent=tp1Frac*100, limit=tp1Price, stop=slPrice)
+        strategy.exit("S-Run", from_entry="S", stop=slPrice)
+        tradesToday += 1
+
+// -----------------------------------------------------------------------------
+// 7. Chandelier-трейл для оставшейся части после TP1
+// -----------------------------------------------------------------------------
+var float trailLong  = na
+var float trailShort = na
+var bool  tp1HitL    = false
+var bool  tp1HitS    = false
+
+// сброс при отсутствии позиции
+if strategy.position_size == 0
+    trailLong  := na
+    trailShort := na
+    tp1HitL    := false
+    tp1HitS    := false
+
+// детект частичного закрытия (после TP1 размер уменьшится)
+if strategy.position_size > 0
+    // высчитываем максимум с момента входа
+    barsIn = bar_index - math.max(strategy.opentrades.entry_bar_index(0), 0)
+    hh     = ta.highest(high, math.max(barsIn + 1, 1))
+    candidate = hh - atr14 * trailATR
+    trailLong := na(trailLong) ? candidate : math.max(trailLong, candidate)
+    // Активируем трейл после TP1: проверяем, что текущий size меньше изначального
+    // (упрощённо — поднимаем стоп до BE минимум, как только цена достигла TP1)
+    if high >= strategy.opentrades.entry_price(0) + atr14 * atrTP1mult
+        tp1HitL := true
+    if tp1HitL
+        beStop = strategy.opentrades.entry_price(0)
+        stopUse = math.max(trailLong, beStop)
+        strategy.exit("L-Run", from_entry="L", stop=stopUse)
+
+if strategy.position_size < 0
+    barsIn = bar_index - math.max(strategy.opentrades.entry_bar_index(0), 0)
+    ll     = ta.lowest(low, math.max(barsIn + 1, 1))
+    candidate = ll + atr14 * trailATR
+    trailShort := na(trailShort) ? candidate : math.min(trailShort, candidate)
+    if low <= strategy.opentrades.entry_price(0) - atr14 * atrTP1mult
+        tp1HitS := true
+    if tp1HitS
+        beStop = strategy.opentrades.entry_price(0)
+        stopUse = math.min(trailShort, beStop)
+        strategy.exit("S-Run", from_entry="S", stop=stopUse)
+
+// -----------------------------------------------------------------------------
+// 8. Жёсткий «kill switch» — закрытие при превышении дневного лимита
+// -----------------------------------------------------------------------------
+if dailyLossPct >= maxDailyLoss and strategy.position_size != 0
+    strategy.close_all(comment="DailyLoss-Kill")
+
+// -----------------------------------------------------------------------------
+// 9. Визуализация
+// -----------------------------------------------------------------------------
+plot(donchHi, "Donchian H", color.new(color.teal,  60))
+plot(donchLo, "Donchian L", color.new(color.maroon, 60))
+plot(bbUp,    "BB Up",      color.new(color.gray,  70))
+plot(bbDn,    "BB Dn",      color.new(color.gray,  70))
+plot(htfEmaSlow, "HTF EMA200", color.new(color.orange, 30), linewidth=2)
+
+bgcolor(htfSlopeUp ? color.new(color.green, 92) :
+        htfSlopeDn ? color.new(color.red,   92) : na)
+
+plotshape(longCond,  "L sig", shape.triangleup,   location.belowbar, color.lime, size=size.tiny)
+plotshape(shortCond, "S sig", shape.triangledown, location.abovebar, color.red,  size=size.tiny)
+
+// -----------------------------------------------------------------------------
+// 10. Метки IS/OOS — для глаз; реальный split делается через диапазон дат
+// -----------------------------------------------------------------------------
+isOOS = time >= oosDate
+bgcolor(isOOS ? color.new(color.yellow, 95) : na, title="OOS region")
