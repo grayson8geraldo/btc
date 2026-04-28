@@ -1,56 +1,69 @@
 //@version=6
-// BTC/USDT M15 — Hybrid Regime-Switching Indicator
-// Visualization + alerts only. Strategy/backtest version is in btc_regime_hybrid_strategy.pine.
+// BTC/USDT M15 — Hybrid Regime Indicator (v2 — high-precision rewrite)
 //
-// Regimes:
-//   TREND_UP / TREND_DOWN — pullback-to-EMA momentum entries
-//   RANGE                 — mean-reversion at BB extremes
-//   NEUTRAL               — no signals
+// Design goals vs v1: drastically reduce false signals by removing lagging
+// pullback-to-EMA logic and crude BB-touch reversion. Replaced with:
+//   • Continuous TRENDINESS SCORE (ADX, BBW, Choppiness, EMA-spread blend)
+//   • TREND entries: NR4 + Bollinger squeeze SETUP, then Donchian breakout
+//                    with volume Z-score > 1.5 inside a 5-bar window
+//   • RANGE entries: liquidity SWEEP (vio of N-bar extreme + close back inside)
+//                    + RSI divergence + volume confirmation
+//   • Filters: H4 EMA50 slope, session VWAP bias, volume floor
 //
-// No repaint: classification and signals are emitted on confirmed bars only.
-// HTF data uses lookahead = barmerge.lookahead_off.
+// No repaint: barstate.isconfirmed for signal emission, request.security with
+// lookahead = barmerge.lookahead_off. Pivots not used for divergence to avoid
+// the right-bars confirmation lag — divergence is a current-bar test against
+// the rolling N-bar low/high of price vs RSI.
 
-indicator("BTC M15 Hybrid Regime", "BTC-Hybrid", overlay = true, max_labels_count = 200, max_lines_count = 200)
+indicator("BTC M15 Hybrid Regime v2", "BTC-Hybrid-v2", overlay = true,
+          max_labels_count = 200, max_lines_count = 200)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INPUTS
 // ─────────────────────────────────────────────────────────────────────────────
-var string G_REGIME = "Regime detector"
-adxLen        = input.int(14,  "ADX length",            minval = 5,  maxval = 50, group = G_REGIME)
-adxTrendThr   = input.float(25.0, "ADX trend threshold", minval = 15, maxval = 40, group = G_REGIME)
-adxRangeThr   = input.float(20.0, "ADX range threshold", minval = 10, maxval = 25, group = G_REGIME)
-emaFastLen    = input.int(50,  "EMA fast",              minval = 20, maxval = 120, group = G_REGIME)
-emaSlowLen    = input.int(200, "EMA slow",              minval = 100, maxval = 300, group = G_REGIME)
-bbLen         = input.int(20,  "BB length",             minval = 10, maxval = 40, group = G_REGIME)
-bbStdev       = input.float(2.0, "BB stdev",            minval = 1.5, maxval = 3.0, step = 0.1, group = G_REGIME)
-slopeLb       = input.int(20,  "Slope linreg lookback", minval = 5, maxval = 50, group = G_REGIME)
+var string G_REGIME = "Regime score"
+adxLen        = input.int(14, "ADX length", minval = 5, maxval = 50, group = G_REGIME)
+emaFastLen    = input.int(50,  "EMA fast",  minval = 20, maxval = 120, group = G_REGIME)
+emaSlowLen    = input.int(200, "EMA slow",  minval = 100, maxval = 300, group = G_REGIME)
+bbLen         = input.int(20,  "BB length", minval = 10, maxval = 40,  group = G_REGIME)
+bbStdev       = input.float(2.0, "BB stdev", minval = 1.5, maxval = 3.0, step = 0.1, group = G_REGIME)
+chopLen       = input.int(14,  "Choppiness length", minval = 7, maxval = 30, group = G_REGIME)
+scoreSmooth   = input.int(5,   "Trendiness EMA smooth", minval = 1, maxval = 15, group = G_REGIME)
+scoreTrend    = input.float(0.55, "Trend threshold (>)", minval = 0.40, maxval = 0.80, step = 0.01, group = G_REGIME)
+scoreRange    = input.float(0.40, "Range threshold (<)", minval = 0.25, maxval = 0.55, step = 0.01, group = G_REGIME)
 
-var string G_TREND = "Trend regime entries"
-emaPullLen    = input.int(20,  "Pullback EMA",          minval = 8, maxval = 50, group = G_TREND)
-rsiLen        = input.int(14,  "RSI length",            minval = 5, maxval = 30, group = G_TREND)
-rsiTrendLong  = input.float(50.0, "RSI long floor",     minval = 40, maxval = 60, group = G_TREND, inline = "rsi_t")
-rsiTrendLongH = input.float(70.0, "RSI long ceiling",   minval = 60, maxval = 80, group = G_TREND, inline = "rsi_t")
-rsiTrendShort = input.float(50.0, "RSI short ceiling",  minval = 40, maxval = 60, group = G_TREND, inline = "rsi_s")
-rsiTrendShortL= input.float(30.0, "RSI short floor",    minval = 20, maxval = 40, group = G_TREND, inline = "rsi_s")
+var string G_TREND = "Trend setup (NR4 + squeeze breakout)"
+nrLen         = input.int(4, "NR-N bars (NR4 = 4)", minval = 3, maxval = 10, group = G_TREND)
+squeezePctl   = input.int(20, "BBW squeeze percentile", minval = 5, maxval = 40, group = G_TREND)
+setupWindow   = input.int(5, "Setup → trigger window (bars)", minval = 1, maxval = 12, group = G_TREND)
+donLen        = input.int(20, "Donchian length", minval = 10, maxval = 50, group = G_TREND)
+volZTrend     = input.float(1.5, "Volume Z-score min (trend)", minval = 0.5, maxval = 4.0, step = 0.1, group = G_TREND)
 
-var string G_RANGE = "Range regime entries"
-rsiRangeLow   = input.float(30.0, "RSI oversold",       minval = 15, maxval = 35, group = G_RANGE, inline = "rsi_r")
-rsiRangeHigh  = input.float(70.0, "RSI overbought",     minval = 65, maxval = 85, group = G_RANGE, inline = "rsi_r")
+var string G_RANGE = "Range setup (liquidity sweep + divergence)"
+sweepLb       = input.int(10, "Sweep lookback bars", minval = 5, maxval = 30, group = G_RANGE)
+divBuffer     = input.float(5.0, "RSI divergence buffer", minval = 1.0, maxval = 15.0, step = 0.5, group = G_RANGE,
+                            tooltip = "Min RSI gap above its N-bar low (or below N-bar high)")
+volMultRange  = input.float(1.2, "Volume × SMA min (range)", minval = 0.8, maxval = 3.0, step = 0.1, group = G_RANGE)
 
 var string G_FILTERS = "Filters"
-htfTF         = input.timeframe("60", "HTF timeframe (trend filter)", group = G_FILTERS)
+htfTF         = input.timeframe("240", "HTF timeframe", group = G_FILTERS)
+htfEmaLen     = input.int(50, "HTF EMA length", minval = 20, maxval = 200, group = G_FILTERS)
+htfSlopeLb    = input.int(3,  "HTF slope lookback bars", minval = 1, maxval = 10, group = G_FILTERS)
+useVwapBias   = input.bool(true, "Use VWAP bias filter", group = G_FILTERS)
+useVolFloor   = input.bool(true, "Block dead-volume bars", group = G_FILTERS)
+volFloorMult  = input.float(0.5, "Dead-volume threshold × SMA", minval = 0.1, maxval = 1.0, step = 0.05, group = G_FILTERS)
 useTimeFilter = input.bool(true, "Block low-liquidity hours", group = G_FILTERS)
-blockSession  = input.session("0200-0600", "Block session (exchange tz)", group = G_FILTERS)
-useAtrFilter  = input.bool(true, "Use ATR percentile filter", group = G_FILTERS)
+blockSession  = input.session("0200-0600", "Block session", group = G_FILTERS)
+useNewsFilter = input.bool(false, "Block news session", group = G_FILTERS)
+newsSession   = input.session("1430-1500", "News session", group = G_FILTERS)
+rsiLen        = input.int(14, "RSI length", minval = 5, maxval = 30, group = G_FILTERS)
 atrLen        = input.int(14, "ATR length", minval = 5, maxval = 30, group = G_FILTERS)
-atrLookback   = input.int(100, "ATR percentile lookback", minval = 30, maxval = 300, group = G_FILTERS)
-atrPctFloor   = input.float(20.0, "ATR floor percentile", minval = 5, maxval = 40, group = G_FILTERS)
-atrPctCeil    = input.float(95.0, "ATR ceil percentile",  minval = 70, maxval = 99, group = G_FILTERS)
 
 var string G_VIS = "Visualization"
-showRegimeBg  = input.bool(true,  "Color background by regime", group = G_VIS)
-showZones     = input.bool(true,  "Show EMA20/BB zones",        group = G_VIS)
-showDashboard = input.bool(true,  "Show dashboard",             group = G_VIS)
+showRegimeBg  = input.bool(true, "Color background by regime", group = G_VIS)
+showZones     = input.bool(true, "Show EMAs / BB / VWAP",       group = G_VIS)
+showDonchian  = input.bool(true, "Show Donchian bands",         group = G_VIS)
+showDashboard = input.bool(true, "Show dashboard",              group = G_VIS)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CORE INDICATORS
@@ -59,9 +72,9 @@ showDashboard = input.bool(true,  "Show dashboard",             group = G_VIS)
 
 float emaFast = ta.ema(close, emaFastLen)
 float emaSlow = ta.ema(close, emaSlowLen)
-float emaPull = ta.ema(close, emaPullLen)
 float rsi     = ta.rsi(close, rsiLen)
 float atrVal  = ta.atr(atrLen)
+float vwap    = ta.vwap(hlc3)
 
 float bbBasis = ta.sma(close, bbLen)
 float bbDev   = bbStdev * ta.stdev(close, bbLen)
@@ -69,151 +82,201 @@ float bbUpper = bbBasis + bbDev
 float bbLower = bbBasis - bbDev
 float bbWidth = (bbUpper - bbLower) / bbBasis
 
-float slope50 = ta.linreg(emaFast, slopeLb, 0) - ta.linreg(emaFast, slopeLb, 5)
+// Choppiness Index: 100 = sideways, 0 = strongly trending
+float trueRange = ta.tr(true)
+float sumTR     = math.sum(trueRange, chopLen)
+float chopHi    = ta.highest(high, chopLen)
+float chopLo    = ta.lowest(low,  chopLen)
+float chopRange = chopHi - chopLo
+float chopIdx   = chopRange > 0 ? 100 * math.log10(sumTR / chopRange) / math.log10(chopLen) : 50.0
 
-float bbWp40 = ta.percentile_linear_interpolation(bbWidth, 100, 40)
-float bbWp60 = ta.percentile_linear_interpolation(bbWidth, 100, 60)
-float atrFlr = ta.percentile_linear_interpolation(atrVal, atrLookback, atrPctFloor)
-float atrCap = ta.percentile_linear_interpolation(atrVal, atrLookback, atrPctCeil)
+// Trendiness components (each 0..1)
+float adxN  = math.min(adx / 50.0, 1.0)
+float chopN = math.max(0.0, math.min(1.0 - chopIdx / 100.0, 1.0))
+float bbwCap = ta.percentile_linear_interpolation(bbWidth, 100, 95)
+float bbwN  = bbwCap > 0 ? math.min(bbWidth / bbwCap, 1.0) : 0.0
+float spN   = atrVal > 0 ? math.min(math.abs(emaFast - emaSlow) / atrVal / 3.0, 1.0) : 0.0
 
-// HTF EMA200 trend filter — explicit lookahead_off
-float htfEma200 = request.security(syminfo.tickerid, htfTF, ta.ema(close, 200),
-                                   lookahead = barmerge.lookahead_off)
-float htfClose  = request.security(syminfo.tickerid, htfTF, close,
-                                   lookahead = barmerge.lookahead_off)
-bool htfBull = htfClose > htfEma200
-bool htfBear = htfClose < htfEma200
+float trendinessRaw = (adxN + chopN + bbwN + spN) / 4.0
+float trendiness    = ta.ema(trendinessRaw, scoreSmooth)
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REGIME CLASSIFIER
-// ─────────────────────────────────────────────────────────────────────────────
-// Encoded as int: 1 = TREND_UP, -1 = TREND_DOWN, 0 = RANGE, 2 = NEUTRAL
-isTrendUp   = adx > adxTrendThr and close > emaSlow and slope50 > 0 and bbWidth > bbWp40
-isTrendDn   = adx > adxTrendThr and close < emaSlow and slope50 < 0 and bbWidth > bbWp40
-isRange     = adx < adxRangeThr and bbWidth < bbWp60
-
-int regime = isTrendUp ? 1 : isTrendDn ? -1 : isRange ? 0 : 2
+// Regime: 1 = TREND, 0 = RANGE, 2 = NEUTRAL (no-trade zone)
+int regime = trendiness > scoreTrend ? 1 : trendiness < scoreRange ? 0 : 2
+int dirBias = emaFast > emaSlow ? 1 : emaFast < emaSlow ? -1 : 0
 
 regimeStr() =>
     switch regime
-        1  => "TREND UP"
-        -1 => "TREND DOWN"
-        0  => "RANGE"
-        =>    "NEUTRAL"
+        1 => dirBias > 0 ? "TREND UP" : dirBias < 0 ? "TREND DOWN" : "TREND ?"
+        0 => "RANGE"
+        => "NEUTRAL"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FILTERS
+// HTF SLOPE (no repaint)
 // ─────────────────────────────────────────────────────────────────────────────
-inBlockedSession = useTimeFilter and not na(time(timeframe.period, blockSession))
-volOK            = not useAtrFilter or (atrVal > atrFlr and atrVal < atrCap)
-filtersOK        = not inBlockedSession and volOK
+float htfEmaNow  = request.security(syminfo.tickerid, htfTF, ta.ema(close, htfEmaLen),
+                                    lookahead = barmerge.lookahead_off)
+float htfEmaPrev = request.security(syminfo.tickerid, htfTF, ta.ema(close, htfEmaLen)[htfSlopeLb],
+                                    lookahead = barmerge.lookahead_off)
+bool htfSlopeUp = htfEmaNow > htfEmaPrev
+bool htfSlopeDn = htfEmaNow < htfEmaPrev
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ENTRY SIGNALS (confirmed bars only — no repaint)
+// VOLUME / VWAP / FILTERS
 // ─────────────────────────────────────────────────────────────────────────────
-pulledBack    = ta.lowest(low, 3) <= emaPull
-pulledUpToEma = ta.highest(high, 3) >= emaPull
+float volMean = ta.sma(volume, 20)
+float volStd  = ta.stdev(volume, 20)
+float volZ    = volStd > 0 ? (volume - volMean) / volStd : 0.0
+bool  volOK   = not useVolFloor or volume > volMean * volFloorMult
 
-trendLongCond  = regime == 1 and pulledBack and close > emaPull and rsi > rsiTrendLong and rsi < rsiTrendLongH and htfBull
-trendShortCond = regime == -1 and pulledUpToEma and close < emaPull and rsi < rsiTrendShort and rsi > rsiTrendShortL and htfBear
+bool inBlockedSession = useTimeFilter and not na(time(timeframe.period, blockSession))
+bool inNewsSession    = useNewsFilter and not na(time(timeframe.period, newsSession))
+bool filtersBaseOK    = not inBlockedSession and not inNewsSession and volOK
 
-rangeLongCond  = regime == 0 and close <= bbLower and rsi < rsiRangeLow  and low == ta.lowest(low, 10)
-rangeShortCond = regime == 0 and close >= bbUpper and rsi > rsiRangeHigh and high == ta.highest(high, 10)
+bool aboveVwap = close > vwap
+bool belowVwap = close < vwap
 
-confirm        = barstate.isconfirmed
-goLongTrend    = trendLongCond  and filtersOK and confirm
-goShortTrend   = trendShortCond and filtersOK and confirm
-goLongRange    = rangeLongCond  and filtersOK and confirm
-goShortRange   = rangeShortCond and filtersOK and confirm
-anyLong        = goLongTrend  or goLongRange
-anyShort       = goShortTrend or goShortRange
+// ─────────────────────────────────────────────────────────────────────────────
+// TREND SETUP: NR-N + BB SQUEEZE → Donchian breakout
+// ─────────────────────────────────────────────────────────────────────────────
+float barRange = high - low
+bool  isNRn    = barRange <= ta.lowest(barRange, nrLen)
+float bbwSqzLvl = ta.percentile_linear_interpolation(bbWidth, 100, squeezePctl)
+bool  isSqueeze = bbWidth < bbwSqzLvl
+bool  setup     = isNRn and isSqueeze
+int   barsSince = ta.barssince(setup)
+bool  inWindow  = not na(barsSince) and barsSince <= setupWindow
+
+// Donchian (exclude current bar to prevent self-referential breakout)
+float donHi = ta.highest(high, donLen)[1]
+float donLo = ta.lowest(low,  donLen)[1]
+
+bool brkUp = inWindow and close > donHi and volZ > volZTrend
+bool brkDn = inWindow and close < donLo and volZ > volZTrend
+
+bool trendLongCond  = regime == 1 and dirBias > 0 and brkUp and htfSlopeUp and (not useVwapBias or aboveVwap)
+bool trendShortCond = regime == 1 and dirBias < 0 and brkDn and htfSlopeDn and (not useVwapBias or belowVwap)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RANGE SETUP: liquidity sweep + RSI divergence + volume
+// ─────────────────────────────────────────────────────────────────────────────
+float prevLow10  = ta.lowest(low,  sweepLb)[1]
+float prevHigh10 = ta.highest(high, sweepLb)[1]
+
+bool sweepLow   = low  < prevLow10  and close > prevLow10
+bool sweepHigh  = high > prevHigh10 and close < prevHigh10
+bool sweepVolOK = volume > volMean * volMultRange
+
+bool bullDiv = low  <= ta.lowest(low,  sweepLb) and rsi > ta.lowest(rsi,  sweepLb) + divBuffer
+bool bearDiv = high >= ta.highest(high, sweepLb) and rsi < ta.highest(rsi, sweepLb) - divBuffer
+
+bool rangeLongCond  = regime == 0 and sweepLow  and bullDiv and sweepVolOK and (not useVwapBias or belowVwap)
+bool rangeShortCond = regime == 0 and sweepHigh and bearDiv and sweepVolOK and (not useVwapBias or aboveVwap)
+
+bool confirm = barstate.isconfirmed
+bool goLongTrend   = trendLongCond  and filtersBaseOK and confirm
+bool goShortTrend  = trendShortCond and filtersBaseOK and confirm
+bool goLongRange   = rangeLongCond  and filtersBaseOK and confirm
+bool goShortRange  = rangeShortCond and filtersBaseOK and confirm
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VISUALIZATION
 // ─────────────────────────────────────────────────────────────────────────────
-plot(showZones ? emaPull : na, "EMA pullback", color = color.new(color.orange, 0), linewidth = 1)
-plot(showZones ? emaFast : na, "EMA fast",     color = color.new(color.blue,   0), linewidth = 1)
-plot(showZones ? emaSlow : na, "EMA slow",     color = color.new(color.purple, 0), linewidth = 2)
-plot(showZones ? bbUpper : na, "BB upper",     color = color.new(color.gray,  60))
-plot(showZones ? bbLower : na, "BB lower",     color = color.new(color.gray,  60))
-plot(showZones ? bbBasis : na, "BB basis",     color = color.new(color.gray,  40))
+plot(showZones ? emaFast : na, "EMA fast", color = color.new(color.blue,   0))
+plot(showZones ? emaSlow : na, "EMA slow", color = color.new(color.purple, 0), linewidth = 2)
+plot(showZones ? bbUpper : na, "BB upper", color = color.new(color.gray,   60))
+plot(showZones ? bbLower : na, "BB lower", color = color.new(color.gray,   60))
+plot(showZones ? bbBasis : na, "BB basis", color = color.new(color.gray,   40))
+plot(showZones ? vwap    : na, "VWAP",     color = color.new(color.yellow, 0), linewidth = 2)
 
-bgcolor(showRegimeBg and regime ==  1 ? color.new(color.green, 92) : na, title = "Trend up bg")
-bgcolor(showRegimeBg and regime == -1 ? color.new(color.red,   92) : na, title = "Trend down bg")
-bgcolor(showRegimeBg and regime ==  0 ? color.new(color.yellow,92) : na, title = "Range bg")
+plot(showDonchian ? donHi : na, "Donchian hi", color = color.new(color.teal, 30), style = plot.style_stepline)
+plot(showDonchian ? donLo : na, "Donchian lo", color = color.new(color.teal, 30), style = plot.style_stepline)
 
-plotshape(goLongTrend,  "Long trend",   shape.triangleup,   location.belowbar, color.new(color.lime,    0), size = size.small, text = "L-T")
-plotshape(goShortTrend, "Short trend",  shape.triangledown, location.abovebar, color.new(color.red,     0), size = size.small, text = "S-T")
-plotshape(goLongRange,  "Long range",   shape.circle,       location.belowbar, color.new(color.aqua,    0), size = size.small, text = "L-R")
-plotshape(goShortRange, "Short range",  shape.circle,       location.abovebar, color.new(color.fuchsia, 0), size = size.small, text = "S-R")
+bgcolor(showRegimeBg and regime == 1 and dirBias > 0 ? color.new(color.green,  92) : na, title = "Trend up bg")
+bgcolor(showRegimeBg and regime == 1 and dirBias < 0 ? color.new(color.red,    92) : na, title = "Trend down bg")
+bgcolor(showRegimeBg and regime == 0                 ? color.new(color.yellow, 92) : na, title = "Range bg")
+
+// Setup marker (when NR4 + squeeze fires) — small dot below bar
+plotshape(setup, "Setup", shape.circle, location.belowbar, color.new(color.aqua, 50), size = size.tiny)
+
+// Entry markers
+plotshape(goLongTrend,  "Long trend",  shape.triangleup,   location.belowbar, color.new(color.lime,    0), size = size.small, text = "L-T")
+plotshape(goShortTrend, "Short trend", shape.triangledown, location.abovebar, color.new(color.red,     0), size = size.small, text = "S-T")
+plotshape(goLongRange,  "Long range",  shape.diamond,      location.belowbar, color.new(color.aqua,    0), size = size.small, text = "L-R")
+plotshape(goShortRange, "Short range", shape.diamond,      location.abovebar, color.new(color.fuchsia, 0), size = size.small, text = "S-R")
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
-var table dash = table.new(position.top_right, 2, 7, border_width = 1, frame_color = color.gray, frame_width = 1)
+var table dash = table.new(position.top_right, 2, 11, border_width = 1, frame_color = color.gray, frame_width = 1)
 if showDashboard and barstate.islast
-    rcolor = regime ==  1 ? color.new(color.green,  20) :
-             regime == -1 ? color.new(color.red,    20) :
-             regime ==  0 ? color.new(color.yellow, 20) : color.new(color.gray, 30)
+    rcolor = regime == 1 and dirBias > 0 ? color.new(color.green,  20) :
+             regime == 1 and dirBias < 0 ? color.new(color.red,    20) :
+             regime == 0                 ? color.new(color.yellow, 20) :
+                                           color.new(color.gray,   30)
 
-    table.cell(dash, 0, 0, "Metric", text_color = color.white, bgcolor = color.new(color.gray, 0), text_size = size.small)
-    table.cell(dash, 1, 0, "Value",  text_color = color.white, bgcolor = color.new(color.gray, 0), text_size = size.small)
+    fcolor = filtersBaseOK ? color.new(color.green, 60) : color.new(color.red, 60)
+    fTxt   = filtersBaseOK ? "OK" : inBlockedSession ? "TIME" : inNewsSession ? "NEWS" : "VOL"
 
-    table.cell(dash, 0, 1, "Regime", text_size = size.small)
+    table.cell(dash, 0, 0, "Metric", bgcolor = color.new(color.gray, 0), text_color = color.white, text_size = size.small)
+    table.cell(dash, 1, 0, "Value",  bgcolor = color.new(color.gray, 0), text_color = color.white, text_size = size.small)
+
+    table.cell(dash, 0, 1, "Regime",      text_size = size.small)
     table.cell(dash, 1, 1, regimeStr(), bgcolor = rcolor, text_size = size.small)
 
-    table.cell(dash, 0, 2, "ADX",    text_size = size.small)
-    table.cell(dash, 1, 2, str.tostring(adx, "#.##"), text_size = size.small)
+    table.cell(dash, 0, 2, "Trendiness",  text_size = size.small)
+    table.cell(dash, 1, 2, str.tostring(trendiness, "0.00"), text_size = size.small)
 
-    table.cell(dash, 0, 3, "RSI",    text_size = size.small)
-    table.cell(dash, 1, 3, str.tostring(rsi, "#.##"), text_size = size.small)
+    table.cell(dash, 0, 3, "ADX",         text_size = size.small)
+    table.cell(dash, 1, 3, str.tostring(adx, "#.#"), text_size = size.small)
 
-    table.cell(dash, 0, 4, "ATR",    text_size = size.small)
-    table.cell(dash, 1, 4, str.tostring(atrVal, "#.##"), text_size = size.small)
+    table.cell(dash, 0, 4, "Chop idx",    text_size = size.small)
+    table.cell(dash, 1, 4, str.tostring(chopIdx, "#.#"), text_size = size.small)
 
-    table.cell(dash, 0, 5, "HTF bias", text_size = size.small)
-    table.cell(dash, 1, 5, htfBull ? "BULL" : htfBear ? "BEAR" : "NEUTRAL", text_size = size.small)
+    table.cell(dash, 0, 5, "Vol Z",       text_size = size.small)
+    table.cell(dash, 1, 5, str.tostring(volZ, "0.00"), text_size = size.small)
 
-    table.cell(dash, 0, 6, "Filters", text_size = size.small)
-    table.cell(dash, 1, 6, filtersOK ? "OK" : (inBlockedSession ? "TIME" : "VOL"),
-               bgcolor = filtersOK ? color.new(color.green, 60) : color.new(color.red, 60),
+    table.cell(dash, 0, 6, "VWAP pos",    text_size = size.small)
+    table.cell(dash, 1, 6, aboveVwap ? "ABOVE" : belowVwap ? "BELOW" : "AT", text_size = size.small)
+
+    table.cell(dash, 0, 7, "HTF slope",   text_size = size.small)
+    table.cell(dash, 1, 7, htfSlopeUp ? "UP" : htfSlopeDn ? "DOWN" : "FLAT", text_size = size.small)
+
+    table.cell(dash, 0, 8, "Setup age",   text_size = size.small)
+    table.cell(dash, 1, 8, na(barsSince) ? "-" : str.tostring(barsSince) + " bars",
+               bgcolor = inWindow ? color.new(color.aqua, 70) : color.new(color.gray, 80),
                text_size = size.small)
+
+    table.cell(dash, 0, 9, "RSI",         text_size = size.small)
+    table.cell(dash, 1, 9, str.tostring(rsi, "#.#"), text_size = size.small)
+
+    table.cell(dash, 0, 10, "Filters",    text_size = size.small)
+    table.cell(dash, 1, 10, fTxt, bgcolor = fcolor, text_size = size.small)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ALERTS
 // ─────────────────────────────────────────────────────────────────────────────
-sl_long_t   = close - atrVal * 1.0
-tp_long_t   = close + atrVal * 2.0
-sl_short_t  = close + atrVal * 1.0
-tp_short_t  = close - atrVal * 2.0
-sl_long_r   = close - atrVal * 0.8
-tp_long_r   = bbBasis
-sl_short_r  = close + atrVal * 0.8
-tp_short_r  = bbBasis
-
-f_msg(string side, string mode, float entry, float sl, float tp) =>
-    str.format("{0} {1}  px={2}  SL={3}  TP={4}  ATR={5}  RSI={6}  ADX={7}",
+f_msg(string side, string mode) =>
+    str.format("{0} {1}  px={2}  ATR={3}  RSI={4}  trendiness={5}  volZ={6}",
                side, mode,
-               str.tostring(entry, "#.##"),
-               str.tostring(sl,    "#.##"),
-               str.tostring(tp,    "#.##"),
-               str.tostring(atrVal,"#.##"),
-               str.tostring(rsi,   "#.#"),
-               str.tostring(adx,   "#.#"))
+               str.tostring(close, "#.##"),
+               str.tostring(atrVal, "#.##"),
+               str.tostring(rsi, "#.#"),
+               str.tostring(trendiness, "0.00"),
+               str.tostring(volZ, "0.00"))
 
 if goLongTrend
-    alert(f_msg("LONG",  "TREND", close, sl_long_t,  tp_long_t),  alert.freq_once_per_bar_close)
+    alert(f_msg("LONG",  "TREND-BREAKOUT"), alert.freq_once_per_bar_close)
 if goShortTrend
-    alert(f_msg("SHORT", "TREND", close, sl_short_t, tp_short_t), alert.freq_once_per_bar_close)
+    alert(f_msg("SHORT", "TREND-BREAKOUT"), alert.freq_once_per_bar_close)
 if goLongRange
-    alert(f_msg("LONG",  "RANGE", close, sl_long_r,  tp_long_r),  alert.freq_once_per_bar_close)
+    alert(f_msg("LONG",  "RANGE-SWEEP"),    alert.freq_once_per_bar_close)
 if goShortRange
-    alert(f_msg("SHORT", "RANGE", close, sl_short_r, tp_short_r), alert.freq_once_per_bar_close)
+    alert(f_msg("SHORT", "RANGE-SWEEP"),    alert.freq_once_per_bar_close)
 
 if confirm and ta.change(regime) != 0
     alert("REGIME CHANGE → " + regimeStr(), alert.freq_once_per_bar_close)
 
-alertcondition(goLongTrend,  "Long Trend",  "Long entry in trend regime")
-alertcondition(goShortTrend, "Short Trend", "Short entry in trend regime")
-alertcondition(goLongRange,  "Long Range",  "Long entry in range regime")
-alertcondition(goShortRange, "Short Range", "Short entry in range regime")
+alertcondition(goLongTrend,  "Long Trend Breakout",  "Long entry: NR + squeeze breakout")
+alertcondition(goShortTrend, "Short Trend Breakout", "Short entry: NR + squeeze breakout")
+alertcondition(goLongRange,  "Long Range Sweep",     "Long entry: liquidity sweep + bull div")
+alertcondition(goShortRange, "Short Range Sweep",    "Short entry: liquidity sweep + bear div")
